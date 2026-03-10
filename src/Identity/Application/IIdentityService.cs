@@ -5,6 +5,27 @@ public interface IIdentityService
     public Task<object?> AuthenticateAsync(
         string            username,
         string            password,
+        string?           twoFactorCode = null,
+        string?           recoveryCode = null,
+        CancellationToken cancellationToken = default);
+
+    public Task<MfaSetupTicket?> BeginMfaSetupAsync(
+        Guid              userId,
+        CancellationToken cancellationToken = default);
+
+    public Task<MfaRecoveryCodesTicket?> EnableMfaAsync(
+        Guid              userId,
+        string            code,
+        CancellationToken cancellationToken = default);
+
+    public Task<IdentityResult> DisableMfaAsync(
+        Guid              userId,
+        string            password,
+        CancellationToken cancellationToken = default);
+
+    public Task<MfaRecoveryCodesTicket?> RegenerateRecoveryCodesAsync(
+        Guid              userId,
+        string            password,
         CancellationToken cancellationToken = default);
 
     public Task<EmailConfirmationTicket?> GenerateEmailConfirmationAsync(
