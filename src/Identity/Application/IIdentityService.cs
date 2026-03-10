@@ -7,6 +7,15 @@ public interface IIdentityService
         string            password,
         CancellationToken cancellationToken = default);
 
+    public Task<EmailConfirmationTicket?> GenerateEmailConfirmationAsync(
+        string            email,
+        CancellationToken cancellationToken = default);
+
+    public Task<EmailChangeTicket?> GenerateEmailChangeAsync(
+        Guid              userId,
+        string            newEmail,
+        CancellationToken cancellationToken = default);
+
     public Task<PasswordResetTicket?> GeneratePasswordResetAsync(
         string            email,
         CancellationToken cancellationToken = default);
@@ -26,6 +35,12 @@ public interface IIdentityService
     public Task<IdentityResult> ConfirmEmailAsync(
         string            token,
         string            email,
+        CancellationToken cancellationToken = default);
+
+    public Task<IdentityResult> ConfirmEmailChangeAsync(
+        string            currentEmail,
+        string            newEmail,
+        string            token,
         CancellationToken cancellationToken = default);
 
     public Task<string> GetUserNameAsync(
