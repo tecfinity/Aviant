@@ -19,6 +19,10 @@ public sealed class OrchestratorResponse
     public OrchestratorResponse(object? payload, int? affectedRows)
         : this(payload) => AffectedRows = affectedRows;
 
+    public OrchestratorResponse(IEnumerable<string> messages)
+        : this(new Collection<string>(messages.ToList()))
+    { }
+
     public OrchestratorResponse(Collection<string> messages)
     {
         Messages  = messages;

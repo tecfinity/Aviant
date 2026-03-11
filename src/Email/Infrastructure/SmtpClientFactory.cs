@@ -42,7 +42,8 @@ public class SmtpClientFactory : ISmtpClientFactory
                 ? SecureSocketOptions.SslOnConnect
                 : SecureSocketOptions.None);
 
-        client.Authenticate(_username, _password);
+        if (!string.IsNullOrWhiteSpace(_username) && !string.IsNullOrWhiteSpace(_password))
+            client.Authenticate(_username, _password);
 
         return client;
     }
