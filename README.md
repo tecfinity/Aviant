@@ -1,81 +1,144 @@
-Aviant Library - Modern .NET Libraries for Clean and Scalable Applications
-=====================
+# Aviant Library
 
-Overview
---------
+A collection of .NET libraries for building clean, scalable applications using DDD, CQRS, and Event Sourcing.
 
-The [Aviant Library](https://github.com/panosru/Aviant) is a collection of modern, well-designed, and easy-to-use .NET libraries aimed at helping developers build clean, scalable, and maintainable applications with minimal boilerplate code. As of now, Aviant Library is only accessible by adding it as source code to your project, rather than using NuGet packages. However, I am working on publishing each project as an independent NuGet package in the near future. Unfortunately, documentation is not yet available, but you can find use cases and examples in [CleanDDDArchitecture](https://github.com/panosru/CleanDDDArchitecture)
+> **Source-only:** Aviant is currently consumed by adding it as a git submodule. NuGet packages are planned.
+> See [CleanDDDArchitecture](https://github.com/panosru/CleanDDDArchitecture) for full usage examples.
 
-Features
-------
+## Module Overview
 
-Some key features of the Aviant Library include:
+```
+src/
+├── Kernel/          # Core abstractions, behaviours, pipeline
+│   ├── Core/        # Entities, Value Objects, Specifications, Timing
+│   ├── Application/ # MediatR pipeline behaviours, Commands, Queries
+│   └── Infrastructure/ # Cross-cutting DI helpers
+├── DDD/             # Domain-Driven Design building blocks
+├── EventSourcing/   # Event-sourced aggregates and persistence
+├── Identity/        # User identity and JWT authentication
+├── Persistence/     # CQRS repositories and Unit of Work
+├── Email/           # SMTP email service
+└── Jobs/            # Hangfire background job runner
+```
 
-1. **Clean Architecture**: The library is designed following the Clean Architecture principles, ensuring a clear separation of concerns and making it easy to extend and maintain over time.
+## Quick Usage Examples
 
-2. **Domain-Driven Design (DDD)**:
-    - **Transfer Objects**: Provides Data Transfer Objects (DTOs) and Entity Transfer Objects (ETOs) for effective data exchange between layers.
-    - **Value Objects**: Offers value objects for modeling domain concepts effectively.
+### Add as a Git Submodule
 
-3. **Event Sourcing**:
-    - **Aggregates and Aggregate Roots**: Support for creating and managing aggregates and aggregate roots in event-driven systems.
-    - **Domain Events**: A framework for handling domain events and event sourcing.
-    - **Event Bus**: A publish-subscribe mechanism for managing domain events.
-    - **Persistence**: Tools for storing and retrieving event-sourced data.
-    - **Use Cases Pattern**: Implements the use case pattern for orchestrating application logic.
-    - **Orchestrator**: Facilitates the coordination of complex operations.
-    - **Service Events**: Managing events within service-oriented architectures.
-    - **Commands/Queries**: Provides infrastructure for implementing commands and queries.
-    - **Unit of Work**: Offers a unit of work pattern for transaction management.
+```bash
+git submodule add https://github.com/panosru/Aviant.git Library/Aviant
+git submodule update --init --recursive
+```
 
-4. **Identity**:
-    - **Users and Roles**: Features for managing user identities and roles.
-    - **JWT Authentication**: Supports JSON Web Token (JWT) authentication for secure access control.
+### Register a Domain with the Kernel
 
-5. **Jobs**:
-    - **Background Job Runner**: Utilizes Hangfire for managing and executing background jobs efficiently.
+```csharp
+// In your CrossCutting project
+public static IServiceCollection AddMyDomain(this IServiceCollection services)
+{
+    services.AddDbContext<MyDbContext>(...);
+    services.AddScoped<IMyRepository, MyRepository>();
+    return services;
+}
+```
 
-6. **Persistence**:
-    - **CQRS (Command Query Responsibility Segregation)**: Separates command and query responsibilities for scalable and efficient data access.
-    - **Use Case Pattern**: Implements the use case pattern for application logic.
-    - **Repositories**: Provides repositories for data access.
-    - **Orchestration**: Supports orchestrating complex operations.
+### CQRS — Command + Handler
 
-7. **Email**:
-    - **Generic Email Service**: Offers a generic email service with an SMTP client factory for sending emails.
+```csharp
+// Command
+public sealed record CreateWeatherCommand(string City, double Temperature)
+    : IRequest<WeatherDto>;
 
-8. **Kernel**:
-    - **Application Events**: A mechanism for handling application-level events.
-    - **Behaviors**: Includes pre and post-processors for behaviors like logging, performance monitoring, handling unhandled exceptions, and data validation.
-    - **Commands and Queries**: Infrastructure for implementing command and query patterns.
-    - **Custom Exceptions**: Supports custom exceptions for specific application needs.
-    - **Aspect-Oriented Programming**: Incorporates aspects and provides tools for aspect-oriented programming.
-    - **Retry Mechanism**: Utilizes Polly for implementing a robust retry mechanism.
-    - **Specification Pattern**: Implements the specification pattern for query composition.
-    - **Use Case Pattern**: Facilitates the use case pattern for orchestrating application logic.
-    - **Entities**: Provides base classes and utilities for creating domain entities.
-    - **Extensions**: Includes extensions for object mapping, collections, dictionaries, enumerables, lists, I/O operations, JSON handling, LINQ enhancements, and reflection utilities.
-    - **Message Queue System**: Offers a message queue system for asynchronous communication.
-    - **Custom Objects**: Provides custom objects for handling timing, such as date and time, clock, localization, etc.
-    - **Cross-Cutting Concerns Helpers**: Tools and utilities for managing cross-cutting concerns efficiently.
+// Handler
+public sealed class CreateWeatherCommandHandler
+    : IRequestHandler<CreateWeatherCommand, WeatherDto>
+{
+    public async Task<WeatherDto> Handle(
+        CreateWeatherCommand request,
+        CancellationToken cancellationToken)
+    {
+        // ... domain logic
+    }
+}
+```
 
-Usage
------
+### Event Sourcing — Aggregate
 
-To get started with using the Aviant Library in your .NET projects, follow these steps:
+```csharp
+public sealed class AccountAggregate : AggregateRoot<AccountAggregate, AccountId>
+{
+    public string Email { get; private set; } = string.Empty;
 
-1. **Add the library to your project** - Include the necessary NuGet packages or download the source code from GitHub.
-2. **Import required namespaces** - Import the relevant namespace(s) into your C# code to access the functionalities provided by the Aviant Library components.
-3. **Use the libraries in your application logic** - Leverage the various modules and classes within the library to implement clean, maintainable, and scalable features for your applications.
+    public void Register(string email)
+    {
+        Apply(new AccountRegisteredEvent(Id, email));
+    }
 
-Contribution
--------------
+    protected override void When(IDomainEvent @event)
+    {
+        if (@event is AccountRegisteredEvent e)
+            Email = e.Email;
+    }
+}
+```
 
-I welcome contributions from the community! If you have ideas or improvements related to the Aviant Library, please submit a pull request on GitHub. I encourage code refactoring, new feature implementation, unit test creation, documentation updates, and any other efforts that can help improve the library for everyone's benefit.
+### MediatR Pipeline Behaviours
 
-Contact
-----------
+Aviant registers these behaviours automatically (in order):
+1. `PerformanceBehaviour` — logs slow requests (>500ms)
+2. `ValidationBehaviour` — runs FluentValidation validators
+3. `UnhandledExceptionBehaviour` — logs unhandled exceptions
+4. `RetryRequestProcessor` — wraps handlers with Polly retry
 
-For questions, feedback, or collaboration inquiries related to the Aviant Library, please reach out via:
+### Identity — JWT Authentication
 
-* [GitHub Issues](https://github.com/panosru/Aviant/issues)
+```csharp
+// AccountService issues JWTs
+services.AddAccountDomain();  // includes Identity + JWT issuance
+
+// Other services validate JWTs
+services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options => {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(key512),
+            TokenDecryptionKey = new SymmetricSecurityKey(key256),
+        };
+    });
+```
+
+## Module Dependency Graph
+
+```
+Kernel/Core
+    └── Kernel/Application  (adds MediatR)
+            └── Kernel/Infrastructure  (adds DI helpers)
+DDD/Core
+    └── DDD/Application      (extends Kernel/Application)
+            └── DDD/Infrastructure
+EventSourcing/Core
+    └── EventSourcing/Application
+            └── EventSourcing/Infrastructure
+Identity/Core
+    └── Identity/Application
+            └── Identity/Infrastructure  (uses Kernel + DDD)
+Persistence/Core
+    └── Persistence/Application
+            └── Persistence/Infrastructure
+Email/Application
+    └── Email/Infrastructure  (MailKit/MimeKit)
+Jobs/Application
+    └── Jobs/Infrastructure   (Hangfire)
+```
+
+## Adding Aviant to a New Project
+
+1. Add as a git submodule (see above)
+2. Add `Library/Aviant/Aviant.sln` or individual `.csproj` references to your solution
+3. Reference the modules you need from your domain projects
+4. Register via the `Add*` extension methods in your `Program.cs` or DI registration class
+
+## Contribution
+
+Pull requests and issue reports are welcome at [github.com/panosru/Aviant](https://github.com/panosru/Aviant/issues).
