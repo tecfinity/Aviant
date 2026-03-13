@@ -10,9 +10,7 @@
         <PackageReference Include="Ardalis.GuardClauses" />
         <PackageReference Include="Castle.Core" />
         <PackageReference Include="Castle.Core.AsyncInterceptor" />
-        <PackageReference Include="Colorful.Console" />
         <PackageReference Include="JetBrains.Annotations" />
-        <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" />
         <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
         <PackageReference Include="Newtonsoft.Json" />
         <PackageReference Include="Serilog.AspNetCore" />
