@@ -7,6 +7,10 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" />
+    </ItemGroup>
+
+    <ItemGroup>
       <ProjectReference Include="..\..\DDD\Core\Core.csproj" />
       <ProjectReference Include="..\..\Kernel\Core\Core.csproj" />
     </ItemGroup>
