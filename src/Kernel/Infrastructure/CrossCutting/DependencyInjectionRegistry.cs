@@ -3,6 +3,7 @@ using System.Reflection;
 using Aviant.Core.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration.EnvironmentVariables;
 using Microsoft.Extensions.Configuration.Json;
 using NetEscapades.Configuration.Yaml;
 
@@ -66,6 +67,21 @@ public static class DependencyInjectionRegistry
             domain,
             CurrentEnvironment.EnvironmentName,
             ConfigurationFormat.Yaml);
+
+        // Domain files are appended after the host's sources, which puts them ahead of
+        // environment variables — so a connection string hardcoded in a domain YAML
+        // would silently beat the one supplied to the container. Re-rank the
+        // environment so deployment configuration wins, matching the host's own order.
+        List<IConfigurationSource> sources = (List<IConfigurationSource>)configurationBuilder.Sources;
+
+        List<IConfigurationSource> environmentSources =
+            [.. sources.Where(source => source is EnvironmentVariablesConfigurationSource)];
+
+        foreach (IConfigurationSource source in environmentSources)
+        {
+            sources.Remove(source);
+            sources.Add(source);
+        }
 
         return configurationBuilder.Build();
     }
