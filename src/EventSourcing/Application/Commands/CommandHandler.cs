@@ -1,6 +1,5 @@
 using Aviant.Core.EventSourcing.Aggregates;
 using Aviant.Core.EventSourcing.Services;
-using Aviant.Core.Services;
 using Polly;
 
 namespace Aviant.Application.EventSourcing.Commands;
@@ -11,9 +10,15 @@ public abstract class CommandHandler<TCommand, TAggregate, TAggregateId>
     where TAggregate : class, IAggregate<TAggregateId>
     where TAggregateId : class, IAggregateId
 {
-    protected IEventsService<TAggregate, TAggregateId> EventsService =>
-        ServiceLocator.ServiceContainer.GetRequiredService<IEventsService<TAggregate, TAggregateId>>(
-            typeof(IEventsService<TAggregate, TAggregateId>));
+    protected CommandHandler(IEventsService<TAggregate, TAggregateId> eventsService)
+    {
+        ArgumentNullException.ThrowIfNull(eventsService);
+
+        EventsService = eventsService;
+    }
+
+    /// <summary>Loads and persists the aggregate's events.</summary>
+    protected IEventsService<TAggregate, TAggregateId> EventsService { get; }
 
     #region ICommandHandler<TCommand,TAggregate,TAggregateId> Members
 

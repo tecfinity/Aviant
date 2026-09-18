@@ -4,11 +4,11 @@ using Aviant.Core.EventSourcing.Aggregates;
 using Aviant.Core.EventSourcing.DomainEvents;
 using Aviant.Core.EventSourcing.EventBus;
 using Aviant.Core.EventSourcing.Services;
-using Serilog;
+using Microsoft.Extensions.Logging;
 
 namespace Aviant.Infrastructure.EventSourcing.Transport.Kafka;
 
-public sealed class EventConsumer<TAggregate, TAggregateId, TDeserializer>
+public sealed partial class EventConsumer<TAggregate, TAggregateId, TDeserializer>
     : IDisposable, IEventConsumer<TAggregate, TAggregateId, TDeserializer>
     where TAggregate : IAggregate<TAggregateId>
     where TAggregateId : class, IAggregateId
@@ -22,16 +22,18 @@ public sealed class EventConsumer<TAggregate, TAggregateId, TDeserializer>
 
     private readonly IEventSerializer _eventSerializer;
 
-    private readonly ILogger _logger = Log.Logger.ForContext<EventConsumer<TAggregate, TAggregateId, TDeserializer>>();
+    private readonly ILogger _logger;
 
     private IConsumer<TAggregateId, string> _eventConsumer;
 
     #pragma warning disable 8618
     public EventConsumer(
-        IEventSerializer  eventSerializer,
-        EventsConsumerConfig config)
+        IEventSerializer                                                eventSerializer,
+        EventsConsumerConfig                                            config,
+        ILogger<EventConsumer<TAggregate, TAggregateId, TDeserializer>> logger)
     {
         _eventSerializer = eventSerializer;
+        _logger          = logger;
 
         var aggregateType = typeof(TAggregate);
 
@@ -74,10 +76,7 @@ public sealed class EventConsumer<TAggregate, TAggregateId, TDeserializer>
             {
                 var topics = string.Join(",", _eventConsumer.Subscription);
 
-                _logger.Information(
-                    "started Kafka consumer {ConsumerName} on {ConsumerTopic}",
-                    _eventConsumer.Name,
-                    topics);
+                LogStarted(_logger, _eventConsumer.Name, topics);
 
                 while (!cancellationToken.IsCancellationRequested)
                     try
@@ -98,20 +97,12 @@ public sealed class EventConsumer<TAggregate, TAggregateId, TDeserializer>
                     }
                     catch (OperationCanceledException ex)
                     {
-                        _logger.Warning(
-                            ex,
-                            "consumer {ConsumerName} on {ConsumerTopic} was stopped: {StopReason}",
-                            _eventConsumer.Name,
-                            topics,
-                            ex.Message);
+                        LogStopped(_logger, ex, _eventConsumer.Name, topics);
                         OnConsumerStopped();
                     }
                     catch (Exception ex)
                     {
-                        _logger.Error(
-                            ex,
-                            "an exception has occurred while consuming a message: {Message}",
-                            ex.Message);
+                        LogConsumeFailed(_logger, ex, _eventConsumer.Name, topics);
                         OnExceptionThrown(ex);
                     }
             },
@@ -148,4 +139,13 @@ public sealed class EventConsumer<TAggregate, TAggregateId, TDeserializer>
         var handler = ConsumerStopped;
         handler.Invoke(this);
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Started Kafka consumer {ConsumerName} on {ConsumerTopic}")]
+    private static partial void LogStarted(ILogger logger, string consumerName, string consumerTopic);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Kafka consumer {ConsumerName} on {ConsumerTopic} was stopped")]
+    private static partial void LogStopped(ILogger logger, Exception exception, string consumerName, string consumerTopic);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Kafka consumer {ConsumerName} on {ConsumerTopic} failed to handle a message")]
+    private static partial void LogConsumeFailed(ILogger logger, Exception exception, string consumerName, string consumerTopic);
 }

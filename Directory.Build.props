@@ -26,6 +26,11 @@
         <NeutralLanguage>en-GB</NeutralLanguage>
     </PropertyGroup>
 
+    <PropertyGroup Label="Tests" Condition="$(MSBuildProjectDirectory.Replace('\', '/').Contains('/tests/'))">
+        <!-- Test classes are public for the runner, not for readers of API docs. -->
+        <NoWarn>$(NoWarn);CS1591</NoWarn>
+    </PropertyGroup>
+
     <PropertyGroup Label="Versioning">
         <!-- Versions come from git tags (v1.2.3); untagged commits get a pre-release height. -->
         <MinVerTagPrefix>v</MinVerTagPrefix>

@@ -11,7 +11,7 @@ public sealed class UtcClockProvider : IClockProvider
 
     #region IClockProvider Members
 
-    public DateTime Now => DateTime.UtcNow;
+    public DateTime Now => Clock.TimeProvider.GetUtcNow().UtcDateTime;
 
     public DateTimeKind Kind => DateTimeKind.Utc;
 

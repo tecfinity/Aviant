@@ -3,45 +3,29 @@ using Aviant.Application.Identity;
 using Aviant.Application.Persistence;
 using Aviant.Core.Entities;
 using Aviant.Infrastructure.Persistence.Configurations;
+using Aviant.Infrastructure.Persistence.Contexts;
+using Aviant.Infrastructure.Persistence.Conventions;
 using Microsoft.EntityFrameworkCore;
 
 namespace Aviant.Infrastructure.Identity.Persistence.Contexts;
 
 public abstract class AuthorizationDbContextWrite<TDbContext, TApplicationUser, TApplicationRole>
     : AuthorizationDbContext<TApplicationUser, TApplicationRole, Guid>,
-      IDbContextWrite,
-      IAuditableImplementation<TDbContext>,
-      IDbContextWriteImplementation<TDbContext>
+      IDbContextWrite
     where TDbContext : class, IDbContextWrite
     where TApplicationUser : ApplicationUser
     where TApplicationRole : ApplicationRole
 {
     // ReSharper disable once StaticMemberInGenericType
-    private static readonly HashSet<Assembly> ConfigurationAssemblies = new();
+    private static readonly HashSet<Assembly> ConfigurationAssemblies = [];
 
-    private readonly IDbContextWriteImplementation<TDbContext> _writeImplementation;
+    protected AuthorizationDbContextWrite(DbContextOptions options)
+        : base(options) => ChangeTracker.LazyLoadingEnabled = false;
 
-    protected AuthorizationDbContextWrite(
-        DbContextOptions                  options)
-        : base(options)
-    {
-        // trait
-        _writeImplementation = this;
-
-        TrackerSettings();
-    }
-
-    #region IDbContextWrite Members
-
-    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = new())
-    {
-        _writeImplementation.ChangeTracker(ChangeTracker, this);
-
-        return base.SaveChangesAsync(cancellationToken);
-    }
-
-    #endregion
-
+    /// <summary>
+    ///     The interceptor that audits this context's saves.
+    /// </summary>
+    protected virtual AuditingInterceptor Auditing => UserAuditingInterceptor.Instance;
 
     public static void AddConfigurationAssemblyFromEntity<TEntity, TKey>(
         EntityConfiguration<TEntity, TKey> entityConfiguration)
@@ -50,17 +34,20 @@ public abstract class AuthorizationDbContextWrite<TDbContext, TApplicationUser, 
         ConfigurationAssemblies.Add(entityConfiguration.GetType().Assembly);
     }
 
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        optionsBuilder.AddInterceptors(Auditing);
+
+        base.OnConfiguring(optionsBuilder);
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        _writeImplementation.OnPreBaseModelCreating(modelBuilder, ConfigurationAssemblies);
+        foreach (var assembly in ConfigurationAssemblies.Append(GetType().Assembly).Distinct())
+            modelBuilder.ApplyConfigurationsFromAssembly(assembly);
 
         base.OnModelCreating(modelBuilder);
 
-        _writeImplementation.OnPostBaseModelCreating(modelBuilder, this);
-    }
-
-    private void TrackerSettings()
-    {
-        ChangeTracker.LazyLoadingEnabled = false;
+        modelBuilder.UseSoftDeleteFilter();
     }
 }

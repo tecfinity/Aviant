@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <RootNamespace>Aviant.Core.MultiTenancy</RootNamespace>
+        <AssemblyName>Aviant.Core.MultiTenancy</AssemblyName>
+    </PropertyGroup>
+
+</Project>

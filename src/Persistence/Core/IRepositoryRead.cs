@@ -10,7 +10,7 @@ namespace Aviant.Core.Persistence;
 /// </summary>
 /// <typeparam name="TEntity">Main Entity type this repository works on</typeparam>
 /// <typeparam name="TPrimaryKey">Primary key type of the entity</typeparam>
-public interface IRepositoryRead<TEntity, in TPrimaryKey> : IDisposable
+public interface IRepositoryRead<TEntity, in TPrimaryKey>
     where TEntity : Entity<TPrimaryKey>
 {
     #region Select/Get/Query

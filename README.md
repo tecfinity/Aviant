@@ -24,6 +24,8 @@ dotnet add package Aviant.Infrastructure.EventSourcing
 | Kernel | `Aviant.Core`, `Aviant.Application`, `Aviant.Infrastructure` |
 | DDD | `Aviant.Core.DDD`, `Aviant.Application.DDD`, `Aviant.Infrastructure.DDD` |
 | Event Sourcing | `Aviant.Core.EventSourcing`, `Aviant.Application.EventSourcing`, `Aviant.Infrastructure.EventSourcing` |
+| ASP.NET Core | `Aviant.Presentation.AspNetCore` |
+| Multi-tenancy | `Aviant.Core.MultiTenancy`, `Aviant.Application.MultiTenancy`, `Aviant.Infrastructure.MultiTenancy` |
 | Persistence | `Aviant.Core.Persistence`, `Aviant.Application.Persistence`, `Aviant.Infrastructure.Persistence` |
 | Identity | `Aviant.Core.Identity`, `Aviant.Application.Identity`, `Aviant.Infrastructure.Identity` |
 | Email | `Aviant.Application.Email`, `Aviant.Infrastructure.Email` |
@@ -91,21 +93,38 @@ public sealed class CreateWeatherCommandHandler
 ### Event Sourcing — Aggregate
 
 ```csharp
-public sealed class AccountAggregate : AggregateRoot<AccountAggregate, AccountId>
+public sealed class AccountAggregate : Aggregate<AccountAggregate, AccountId>
 {
+    private AccountAggregate() { }
+
+    private AccountAggregate(AccountId id) : base(id) { }
+
     public string Email { get; private set; } = string.Empty;
 
-    public void Register(string email)
+    public static AccountAggregate Register(AccountId id, string email)
     {
-        Apply(new AccountRegisteredEvent(Id, email));
+        var account = new AccountAggregate(id);
+        account.AddEvent(new AccountRegistered(account, email));
+        return account;
     }
 
-    protected override void When(IDomainEvent @event)
+    protected override void Apply(IDomainEvent<AccountId> @event)
     {
-        if (@event is AccountRegisteredEvent e)
-            Email = e.Email;
+        if (@event is AccountRegistered registered)
+        {
+            Id    = registered.AggregateId;
+            Email = registered.Email;
+        }
     }
 }
+```
+
+Events are stored in [KurrentDB](https://www.kurrent.io) (formerly EventStoreDB) over gRPC, one stream per aggregate, with optimistic concurrency on the stream revision:
+
+```csharp
+services.AddKurrentDb("kurrentdb://admin:changeit@localhost:2113?tls=false");
+services.AddSingleton<IEventSerializer>(new JsonEventSerializer([typeof(AccountAggregate).Assembly]));
+services.AddEventsRepository<AccountAggregate, AccountId>();
 ```
 
 ### MediatR Pipeline
@@ -127,6 +146,40 @@ It registers MediatR, every handler, processor and interceptor in those assembli
 Handlers that implement `IRetry` are wrapped in their Polly policy; others are called directly.
 
 **Startup fails if a request has no handler.** A hosted service checks every request type in the given assemblies and lists those with no registered handler, so a module left out of the list is caught at startup instead of on the first request.
+
+### Multi-tenancy
+
+Mark entities `ITenantOwned`, register the tenant of a request, and scope each context:
+
+```csharp
+services.AddAviantMultiTenancy<ClaimsTenantScope>();   // your ITenantScope for requests
+
+public sealed class ShopContext(DbContextOptions<ShopContext> options, ITenantScope tenant) : DbContext(options)
+{
+    private readonly TenantFilter _tenant = new(tenant);
+    private TenantFilter Tenant => _tenant;
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder) =>
+        modelBuilder.UseTenantFilter(this, () => Tenant);
+}
+
+services.AddDbContext<ShopContext>((provider, options) => options
+    .UseNpgsql(connectionString)
+    .AddInterceptors(new TenantStampingInterceptor(provider.GetRequiredService<ITenantScope>())));
+```
+
+Reads see only the current tenant's rows, new rows are stamped with it, and moving a row to another tenant throws. A job derived from `TenantScopedJob<T>` enters the tenant it was enqueued for before it runs.
+
+### Logging and time
+
+Aviant logs through `Microsoft.Extensions.Logging`, so it uses whatever provider the host configures (Serilog, OpenTelemetry, the console). It never logs a request's contents, only its name, because commands carry passwords and personal data.
+
+Domain events, exceptions and audit fields take their timestamps from `Clock`, which reads a `TimeProvider`. Replace it in tests to control time:
+
+```csharp
+Clock.TimeProvider = new FakeTimeProvider(new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero));
+Clock.Provider     = ClockProviders.Utc;
+```
 
 ### Domain Refusals
 

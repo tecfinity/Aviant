@@ -1,39 +1,32 @@
+using Microsoft.Extensions.Logging;
+
 namespace Aviant.Application.Identity.Behaviours;
 
-public class LoggerBehaviour<TRequest> : Aviant.Application.Behaviours.LoggerBehaviour<TRequest>
+/// <summary>
+///     Logs the name of every request and the id of the user who sent it. The request's contents are not logged.
+/// </summary>
+public partial class LoggerBehaviour<TRequest> : Application.Behaviours.LoggerBehaviour<TRequest>
     where TRequest : notnull
 {
     private readonly ICurrentUserService _currentUserService;
 
-    private readonly IIdentityService _identityService;
-
-    public LoggerBehaviour(ICurrentUserService currentUserService, IIdentityService identityService)
-    {
-        _currentUserService      = currentUserService;
-        _identityService = identityService;
-    }
+    public LoggerBehaviour(
+        ICurrentUserService                                        currentUserService,
+        ILogger<Application.Behaviours.LoggerBehaviour<TRequest>> logger)
+        : base(logger) =>
+        _currentUserService = currentUserService;
 
     #region IRequestPreProcessor<TRequest> Members
 
-    public override async Task Process(TRequest request, CancellationToken cancellationToken)
+    public override Task Process(TRequest request, CancellationToken cancellationToken)
     {
-        var requestName = typeof(TRequest).Name;
-        var userId      = _currentUserService.UserId;
-        var username    = string.Empty;
+        LogRequest(Logger, typeof(TRequest).Name, _currentUserService.UserId);
 
-        if (Guid.Empty != userId)
-            username = await _identityService.GetUserNameAsync(userId, cancellationToken)
-               .ConfigureAwait(false);
-
-        Logger.Information(
-            "Request: {Name} {@UserId} {@UserName} {@Request}",
-            requestName,
-            userId,
-            username,
-            request);
-
-        await Task.CompletedTask.ConfigureAwait(false);
+        return Task.CompletedTask;
     }
 
     #endregion
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Request: {Name}, UserId: {UserId}")]
+    private static partial void LogRequest(ILogger logger, string name, Guid userId);
 }

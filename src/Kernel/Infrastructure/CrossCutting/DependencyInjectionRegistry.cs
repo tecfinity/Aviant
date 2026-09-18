@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Reflection;
-using Aviant.Core.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.Json;
@@ -14,8 +13,8 @@ public static class DependencyInjectionRegistry
 
     public static IConfiguration DefaultConfiguration =>
         _configuration
-     ?? ServiceLocator.ServiceContainer.GetRequiredService<IConfiguration>(
-            typeof(IConfiguration));
+     ?? throw new InvalidOperationException(
+            $"Configuration is not set. Call {nameof(DependencyInjectionRegistry)}.{nameof(SetConfiguration)} at startup.");
 
     private static IConfigurationBuilder ConfigurationWithDomainsBuilder { get; } = new ConfigurationBuilder();
 

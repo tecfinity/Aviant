@@ -1,10 +1,9 @@
-using System.Text;
 using System.Text.Json;
 using Aviant.Core.EventSourcing.Aggregates;
 using Aviant.Core.EventSourcing.DomainEvents;
 using Aviant.Core.EventSourcing.Persistence;
 using Aviant.Core.EventSourcing.Services;
-using EventStore.ClientAPI;
+using KurrentDB.Client;
 
 namespace Aviant.Infrastructure.EventSourcing.Persistence.EventStore;
 
@@ -12,19 +11,16 @@ internal sealed class EventsRepository<TAggregate, TAggregateId> : IEventsReposi
     where TAggregate : class, IAggregate<TAggregateId>
     where TAggregateId : class, IAggregateId
 {
-    private readonly IEventStoreConnectionWrapper _connectionWrapper;
+    private readonly KurrentDBClient _client;
 
     private readonly IEventSerializer _eventSerializer;
 
-    private readonly string _streamBaseName;
+    private readonly string _streamBaseName = typeof(TAggregate).Name;
 
-    public EventsRepository(IEventStoreConnectionWrapper connectionWrapper, IEventSerializer eventSerializer)
+    public EventsRepository(KurrentDBClient client, IEventSerializer eventSerializer)
     {
-        _connectionWrapper = connectionWrapper;
+        _client          = client;
         _eventSerializer = eventSerializer;
-
-        var aggregateType = typeof(TAggregate);
-        _streamBaseName = aggregateType.Name;
     }
 
     #region IEventsRepository<TAggregate,TAggregateId> Members
@@ -33,79 +29,49 @@ internal sealed class EventsRepository<TAggregate, TAggregateId> : IEventsReposi
         TAggregate        aggregate,
         CancellationToken cancellationToken = default)
     {
-        if (aggregate is null)
-            throw new ArgumentNullException(nameof(aggregate));
+        ArgumentNullException.ThrowIfNull(aggregate);
 
         if (!aggregate.Events.Any())
             return;
 
-        var streamName = GetStreamName(aggregate.Id);
-
         IDomainEvent<TAggregateId> firstEvent = aggregate.Events.First();
 
-        var expectedVersion = 0 == firstEvent.AggregateVersion
-            ? ExpectedVersion.NoStream
-            : firstEvent.AggregateVersion - 1;
+        // The append is atomic: every pending event is written, or none is.
+        // A stale expected revision fails with WrongExpectedVersionException.
+        var expectedState = 0 == firstEvent.AggregateVersion
+            ? StreamState.NoStream
+            : StreamState.StreamRevision((ulong)(firstEvent.AggregateVersion - 1));
 
-        var connection = await _connectionWrapper.GetConnectionAsync(cancellationToken)
+        await _client.AppendToStreamAsync(
+                GetStreamName(aggregate.Id),
+                expectedState,
+                aggregate.Events.Select(Map),
+                cancellationToken: cancellationToken)
            .ConfigureAwait(false);
-
-        using var transaction = await connection.StartTransactionAsync(streamName, expectedVersion)
-           .ConfigureAwait(false);
-
-        try
-        {
-            EventData[] newEvents = aggregate.Events.Select(Map).ToArray();
-
-            await transaction.WriteAsync(newEvents)
-               .ConfigureAwait(false);
-
-            await transaction.CommitAsync()
-               .ConfigureAwait(false);
-        }
-        catch
-        {
-            transaction.Rollback();
-            throw;
-        }
     }
 
     public async Task<TAggregate?> RehydrateAsync(
         TAggregateId      aggregateId,
         CancellationToken cancellationToken = default)
     {
-        var connection = await _connectionWrapper.GetConnectionAsync(cancellationToken)
-           .ConfigureAwait(false);
+        var stream = _client.ReadStreamAsync(
+            Direction.Forwards,
+            GetStreamName(aggregateId),
+            StreamPosition.Start,
+            cancellationToken: cancellationToken);
 
-        var streamName = GetStreamName(aggregateId);
-
-        List<IDomainEvent<TAggregateId>> events = new();
-
-        StreamEventsSlice currentSlice;
-        long              nextSliceStart = StreamPosition.Start;
-
-        do
-        {
-            currentSlice = await connection.ReadStreamEventsForwardAsync(
-                    streamName,
-                    nextSliceStart,
-                    200,
-                    false)
-               .ConfigureAwait(false);
-
-            nextSliceStart = currentSlice.NextEventNumber;
-
-            events.AddRange(currentSlice.Events.Select(Map));
-        } while (!currentSlice.IsEndOfStream);
-
-        if (!events.Any())
+        if (await stream.ReadState.ConfigureAwait(false) == ReadState.StreamNotFound)
             return null;
 
-        var result = Aggregate<TAggregate, TAggregateId>.Create(
-            events.OrderBy(
-                e => e.AggregateVersion));
+        List<IDomainEvent<TAggregateId>> events = [];
 
-        return result;
+        await foreach (var resolvedEvent in stream.ConfigureAwait(false))
+            events.Add(Map(resolvedEvent));
+
+        if (events.Count == 0)
+            return null;
+
+        return Aggregate<TAggregate, TAggregateId>.Create(events.OrderBy(e => e.AggregateVersion));
     }
 
     #endregion
@@ -114,33 +80,19 @@ internal sealed class EventsRepository<TAggregate, TAggregateId> : IEventsReposi
 
     private IDomainEvent<TAggregateId> Map(ResolvedEvent resolvedEvent)
     {
-        var meta = JsonSerializer.Deserialize<EventMeta>(resolvedEvent.Event.Metadata);
+        var meta = JsonSerializer.Deserialize<EventMeta>(resolvedEvent.Event.Metadata.Span);
 
-        return _eventSerializer.Deserialize<TAggregateId>(meta.EventType, resolvedEvent.Event.Data);
+        return _eventSerializer.Deserialize<TAggregateId>(meta.EventType, resolvedEvent.Event.Data.ToArray());
     }
 
     private static EventData Map(IDomainEvent<TAggregateId> @event)
     {
-        var json = JsonSerializer.Serialize((dynamic)@event);
-        var data = Encoding.UTF8.GetBytes(json);
-
         var eventType = @event.GetType();
 
-        EventMeta meta = new()
-        {
-            EventType = eventType.AssemblyQualifiedName!
-        };
-        var    metaJson = JsonSerializer.Serialize(meta);
-        byte[] metadata = Encoding.UTF8.GetBytes(metaJson);
+        byte[] data     = JsonSerializer.SerializeToUtf8Bytes(@event, eventType);
+        byte[] metadata = JsonSerializer.SerializeToUtf8Bytes(new EventMeta { EventType = eventType.AssemblyQualifiedName! });
 
-        EventData eventPayload = new(
-            Guid.NewGuid(),
-            eventType.Name,
-            true,
-            data,
-            metadata);
-
-        return eventPayload;
+        return new EventData(Uuid.NewUuid(), eventType.Name, data, metadata);
     }
 }
 

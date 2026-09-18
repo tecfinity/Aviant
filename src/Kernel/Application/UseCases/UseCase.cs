@@ -1,7 +1,7 @@
 // ReSharper disable MemberCanBePrivate.Global
 
 using Aviant.Application.Behaviours;
-using Aviant.Core.Services;
+using Microsoft.Extensions.DependencyInjection;
 using FluentValidation;
 using Aviant.Application.Orchestration;
 
@@ -13,20 +13,30 @@ namespace Aviant.Application.UseCases;
 /// </summary>
 /// <typeparam name="TUseCaseOutput">The expected output object type</typeparam>
 public abstract class UseCaseBase<TUseCaseOutput>
-    : IUseCase<TUseCaseOutput>
+    : IUseCase<TUseCaseOutput>,
+      IUseCaseActivation
     where TUseCaseOutput : class, IUseCaseOutput
 {
+    private IServiceProvider? _services;
+
     /// <summary>
     ///     The output object
     /// </summary>
     protected TUseCaseOutput Output;
 
     /// <summary>
+    ///     The dependency scope this use case runs in: a request's, a background job's or a test's.
+    /// </summary>
+    protected IServiceProvider Services =>
+        _services
+     ?? throw new InvalidOperationException(
+            $"{GetType().Name} was not activated. Register use cases with services.AddAviantUseCases(assemblies), "
+          + "or call Activate(serviceProvider) when constructing one yourself.");
+
+    /// <summary>
     ///     The orchestrator object
     /// </summary>
-    protected IOrchestrator Orchestrator =>
-        ServiceLocator.ServiceContainer.GetRequiredService<IOrchestrator>(
-            typeof(IOrchestrator));
+    protected IOrchestrator Orchestrator => Services.GetRequiredService<IOrchestrator>();
 
     #region IUseCase<TUseCaseOutput> Members
 
@@ -35,6 +45,18 @@ public abstract class UseCaseBase<TUseCaseOutput>
     /// </summary>
     /// <param name="output">The output object</param>
     public void SetOutput(TUseCaseOutput output) => Output = output;
+
+    #endregion
+
+    #region IUseCaseActivation Members
+
+    /// <inheritdoc />
+    public void Activate(IServiceProvider services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        _services = services;
+    }
 
     #endregion
 }
@@ -96,10 +118,6 @@ public abstract class UseCase<TUseCaseInput, TUseCaseOutput>
     protected virtual Task ValidateInputAsync(
         TUseCaseInput     input,
         CancellationToken cancellationToken = default) =>
-        new ValidationProcessor<TUseCaseInput>(
-                ServiceLocator.ServiceContainer
-                   .GetRequiredService<IEnumerable<IValidator<TUseCaseInput>>>(
-                        typeof(IEnumerable<IValidator<TUseCaseInput>>)),
-                input)
+        new ValidationProcessor<TUseCaseInput>(Services.GetServices<IValidator<TUseCaseInput>>(), input)
            .HandleValidationAsync(cancellationToken);
 }

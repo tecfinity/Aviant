@@ -1,26 +1,30 @@
 using Aviant.Application.Processors;
-using Serilog;
+using Microsoft.Extensions.Logging;
 
 namespace Aviant.Application.Behaviours;
 
-public class LoggerBehaviour<TRequest> : RequestPreProcessor<TRequest>
+/// <summary>
+///     Logs the name of every request as it enters the pipeline. The request's contents are not logged:
+///     commands carry passwords, tokens and personal data.
+/// </summary>
+public partial class LoggerBehaviour<TRequest> : RequestPreProcessor<TRequest>
     where TRequest : notnull
 {
-    protected readonly ILogger Logger = Log.Logger.ForContext<LoggerBehaviour<TRequest>>();
+    protected readonly ILogger Logger;
+
+    public LoggerBehaviour(ILogger<LoggerBehaviour<TRequest>> logger) => Logger = logger;
 
     #region IRequestPreProcessor<TRequest> Members
 
-    public override async Task Process(TRequest request, CancellationToken cancellationToken)
+    public override Task Process(TRequest request, CancellationToken cancellationToken)
     {
-        var requestName = typeof(TRequest).Name;
+        LogRequest(Logger, typeof(TRequest).Name);
 
-        Logger.Information(
-            "Request: {Name} {@Request}",
-            requestName,
-            request);
-
-        await Task.CompletedTask.ConfigureAwait(false);
+        return Task.CompletedTask;
     }
 
     #endregion
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Request: {Name}")]
+    private static partial void LogRequest(ILogger logger, string name);
 }

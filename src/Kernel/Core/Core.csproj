@@ -12,7 +12,6 @@
         <PackageReference Include="JetBrains.Annotations" />
         <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
         <PackageReference Include="Newtonsoft.Json" />
-        <PackageReference Include="Serilog.AspNetCore" />
         <PackageReference Include="Polly" />
         <PackageReference Include="StronglyTypedId" />
     </ItemGroup>
