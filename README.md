@@ -91,21 +91,38 @@ public sealed class CreateWeatherCommandHandler
 ### Event Sourcing — Aggregate
 
 ```csharp
-public sealed class AccountAggregate : AggregateRoot<AccountAggregate, AccountId>
+public sealed class AccountAggregate : Aggregate<AccountAggregate, AccountId>
 {
+    private AccountAggregate() { }
+
+    private AccountAggregate(AccountId id) : base(id) { }
+
     public string Email { get; private set; } = string.Empty;
 
-    public void Register(string email)
+    public static AccountAggregate Register(AccountId id, string email)
     {
-        Apply(new AccountRegisteredEvent(Id, email));
+        var account = new AccountAggregate(id);
+        account.AddEvent(new AccountRegistered(account, email));
+        return account;
     }
 
-    protected override void When(IDomainEvent @event)
+    protected override void Apply(IDomainEvent<AccountId> @event)
     {
-        if (@event is AccountRegisteredEvent e)
-            Email = e.Email;
+        if (@event is AccountRegistered registered)
+        {
+            Id    = registered.AggregateId;
+            Email = registered.Email;
+        }
     }
 }
+```
+
+Events are stored in [KurrentDB](https://www.kurrent.io) (formerly EventStoreDB) over gRPC, one stream per aggregate, with optimistic concurrency on the stream revision:
+
+```csharp
+services.AddKurrentDb("kurrentdb://admin:changeit@localhost:2113?tls=false");
+services.AddSingleton<IEventSerializer>(new JsonEventSerializer([typeof(AccountAggregate).Assembly]));
+services.AddEventsRepository<AccountAggregate, AccountId>();
 ```
 
 ### MediatR Pipeline

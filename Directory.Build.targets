@@ -5,7 +5,7 @@
         <_AviantLayer>$([System.IO.Path]::GetFileName($(MSBuildProjectDirectory)))</_AviantLayer>
         <Description Condition="'$(_AviantModule)' == 'Kernel'">Aviant $(_AviantLayer): the kernel every Aviant module builds on. Entities, commands, queries, the orchestrator and the MediatR pipeline, use cases and cross-cutting registration.</Description>
         <Description Condition="'$(_AviantModule)' == 'DDD'">Aviant DDD $(_AviantLayer): Domain-Driven Design building blocks: aggregates, value objects and domain events.</Description>
-        <Description Condition="'$(_AviantModule)' == 'EventSourcing'">Aviant Event Sourcing $(_AviantLayer): event-sourced aggregates, an EventStore repository and a Kafka event bus.</Description>
+        <Description Condition="'$(_AviantModule)' == 'EventSourcing'">Aviant Event Sourcing $(_AviantLayer): event-sourced aggregates, a KurrentDB (EventStoreDB) repository and a Kafka event bus.</Description>
         <Description Condition="'$(_AviantModule)' == 'Persistence'">Aviant Persistence $(_AviantLayer): EF Core read/write contexts, repositories, unit of work and auditing.</Description>
         <Description Condition="'$(_AviantModule)' == 'Identity'">Aviant Identity $(_AviantLayer): ASP.NET Core Identity integration, JWT issuance and audited identity persistence.</Description>
         <Description Condition="'$(_AviantModule)' == 'Email'">Aviant Email $(_AviantLayer): an email service over MailKit.</Description>
