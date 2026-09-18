@@ -18,4 +18,8 @@
       <ProjectReference Include="..\Application\Application.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <InternalsVisibleTo Include="Aviant.Tests.Kernel.Unit" />
+    </ItemGroup>
+
 </Project>
