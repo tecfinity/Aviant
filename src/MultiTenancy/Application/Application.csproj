@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <RootNamespace>Aviant.Application.MultiTenancy</RootNamespace>
+        <AssemblyName>Aviant.Application.MultiTenancy</AssemblyName>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Core\Core.csproj" />
+        <ProjectReference Include="..\..\Jobs\Application\Application.csproj" />
+    </ItemGroup>
+
+</Project>

@@ -14,6 +14,11 @@ Aviant 2 removes the static service locator, makes persistence truly asynchronou
 - `AuditingInterceptor` and `UserAuditingInterceptor` (Identity): audit times, soft deletes, read-only entities, and the user who made each change, on every save, synchronous or not. Write contexts add them on their own, and any other `DbContext` can opt in.
 - `AddAviantJobs(jobs => jobs.AddAssemblies(...))` registers `IJobRunner` and every job, and checks at startup that each job can be constructed. By default it logs the ones that can't and keeps going; set `FailOnUnresolvableJobs` to stop the host instead. `Validate(types)` adds jobs registered by interface.
 - `IRecurringJob` and `IJobRunner.RunRecurring<TJob>(id, cron, timeZone, queue)` for jobs that run on a schedule and work out for themselves what is due. Recurring jobs also take a time zone (UTC by default) and a queue.
+- **Multi-tenancy module** (`Aviant.Core/Application/Infrastructure.MultiTenancy`):
+  - `ITenantOwned` entities and an `ITenantScope` for requests, with `IBackgroundTenantScope` and `TenantScopedJob<T>` for jobs.
+  - `UseTenantFilter`, a query filter that reads the tenant through the context on every query. A filter over any other object would be cached with the model and reused for the next tenant.
+  - `TenantStampingInterceptor`, which stamps new rows with the current tenant and refuses to move a row to another one.
+  - `AddAviantMultiTenancy<TRequestScope>()`. Its tenant scope follows a job into its tenant, even for a context built before the job entered it.
 - Model conventions `UseDomainAssignedKeys()` (Guid keys are never store-generated, so a new child of a loaded parent is inserted instead of updated) and `UseUtcTimestamps()` (every `DateTimeOffset` is stored as UTC, which PostgreSQL requires).
 - Integration tests for the events repository against a real KurrentDB container.
 - `AddAviantCqrs(assemblies, configureOrchestrator)` registers the whole MediatR pipeline in one call: handlers, processors, interceptors, retry decorators and the ordered behaviours.

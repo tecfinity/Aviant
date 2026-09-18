@@ -9,7 +9,8 @@
         <Description Condition="'$(_AviantModule)' == 'Persistence'">Aviant Persistence $(_AviantLayer): EF Core read/write contexts, repositories, unit of work and auditing.</Description>
         <Description Condition="'$(_AviantModule)' == 'Identity'">Aviant Identity $(_AviantLayer): ASP.NET Core Identity integration, JWT issuance and audited identity persistence.</Description>
         <Description Condition="'$(_AviantModule)' == 'Email'">Aviant Email $(_AviantLayer): an email service over MailKit.</Description>
-        <Description Condition="'$(_AviantModule)' == 'Jobs'">Aviant Jobs $(_AviantLayer): background jobs over Hangfire.</Description>
+        <Description Condition="'$(_AviantModule)' == 'MultiTenancy'">Aviant Multi-Tenancy $(_AviantLayer): tenant scope for requests and background jobs, a per-context tenant query filter and write stamping that keeps rows in their tenant.</Description>
+        <Description Condition="'$(_AviantModule)' == 'Jobs'">Aviant Jobs $(_AviantLayer): background jobs over Hangfire, with cancellation, recurring jobs and a startup check that every job can be built.</Description>
     </PropertyGroup>
 
     <!-- Clean removes bin/ and obj/ entirely. -->

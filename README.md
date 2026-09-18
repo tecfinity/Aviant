@@ -24,6 +24,7 @@ dotnet add package Aviant.Infrastructure.EventSourcing
 | Kernel | `Aviant.Core`, `Aviant.Application`, `Aviant.Infrastructure` |
 | DDD | `Aviant.Core.DDD`, `Aviant.Application.DDD`, `Aviant.Infrastructure.DDD` |
 | Event Sourcing | `Aviant.Core.EventSourcing`, `Aviant.Application.EventSourcing`, `Aviant.Infrastructure.EventSourcing` |
+| Multi-tenancy | `Aviant.Core.MultiTenancy`, `Aviant.Application.MultiTenancy`, `Aviant.Infrastructure.MultiTenancy` |
 | Persistence | `Aviant.Core.Persistence`, `Aviant.Application.Persistence`, `Aviant.Infrastructure.Persistence` |
 | Identity | `Aviant.Core.Identity`, `Aviant.Application.Identity`, `Aviant.Infrastructure.Identity` |
 | Email | `Aviant.Application.Email`, `Aviant.Infrastructure.Email` |
@@ -144,6 +145,29 @@ It registers MediatR, every handler, processor and interceptor in those assembli
 Handlers that implement `IRetry` are wrapped in their Polly policy; others are called directly.
 
 **Startup fails if a request has no handler.** A hosted service checks every request type in the given assemblies and lists those with no registered handler, so a module left out of the list is caught at startup instead of on the first request.
+
+### Multi-tenancy
+
+Mark entities `ITenantOwned`, register the tenant of a request, and scope each context:
+
+```csharp
+services.AddAviantMultiTenancy<ClaimsTenantScope>();   // your ITenantScope for requests
+
+public sealed class ShopContext(DbContextOptions<ShopContext> options, ITenantScope tenant) : DbContext(options)
+{
+    private readonly TenantFilter _tenant = new(tenant);
+    private TenantFilter Tenant => _tenant;
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder) =>
+        modelBuilder.UseTenantFilter(this, () => Tenant);
+}
+
+services.AddDbContext<ShopContext>((provider, options) => options
+    .UseNpgsql(connectionString)
+    .AddInterceptors(new TenantStampingInterceptor(provider.GetRequiredService<ITenantScope>())));
+```
+
+Reads see only the current tenant's rows, new rows are stamped with it, and moving a row to another tenant throws. A job derived from `TenantScopedJob<T>` enters the tenant it was enqueued for before it runs.
 
 ### Logging and time
 

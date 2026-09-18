@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <RootNamespace>Aviant.Infrastructure.MultiTenancy</RootNamespace>
+        <AssemblyName>Aviant.Infrastructure.MultiTenancy</AssemblyName>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Application\Application.csproj" />
+        <ProjectReference Include="..\..\Persistence\Infrastructure\Infrastructure.csproj" />
+    </ItemGroup>
+
+</Project>
