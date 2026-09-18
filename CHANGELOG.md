@@ -14,6 +14,10 @@ Aviant 2 removes the static service locator, makes persistence truly asynchronou
 - `AuditingInterceptor` and `UserAuditingInterceptor` (Identity): audit times, soft deletes, read-only entities, and the user who made each change, on every save, synchronous or not. Write contexts add them on their own, and any other `DbContext` can opt in.
 - `AddAviantJobs(jobs => jobs.AddAssemblies(...))` registers `IJobRunner` and every job, and checks at startup that each job can be constructed. By default it logs the ones that can't and keeps going; set `FailOnUnresolvableJobs` to stop the host instead. `Validate(types)` adds jobs registered by interface.
 - `IRecurringJob` and `IJobRunner.RunRecurring<TJob>(id, cron, timeZone, queue)` for jobs that run on a schedule and work out for themselves what is due. Recurring jobs also take a time zone (UTC by default) and a queue.
+- **ASP.NET Core package** (`Aviant.Presentation.AspNetCore`):
+  - `AddAviantProblemDetails()` registers `AviantExceptionHandler`, which answers Aviant's exceptions with RFC 9457 problem details. A validation failure is a 400 listing the errors, a missing resource or entity a 404, and a refused domain rule a 400 with its message.
+  - Other exceptions fall through to the default 500. `Map<TException>(status, title)` adds your own mappings.
+  - `UseCaseController<TUseCase, TOutput>` is a controller that presents its use case's output, and `OrchestratorController` one that sends requests itself.
 - **Multi-tenancy module** (`Aviant.Core/Application/Infrastructure.MultiTenancy`):
   - `ITenantOwned` entities and an `ITenantScope` for requests, with `IBackgroundTenantScope` and `TenantScopedJob<T>` for jobs.
   - `UseTenantFilter`, a query filter that reads the tenant through the context on every query. A filter over any other object would be cached with the model and reused for the next tenant.

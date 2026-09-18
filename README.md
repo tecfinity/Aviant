@@ -24,6 +24,7 @@ dotnet add package Aviant.Infrastructure.EventSourcing
 | Kernel | `Aviant.Core`, `Aviant.Application`, `Aviant.Infrastructure` |
 | DDD | `Aviant.Core.DDD`, `Aviant.Application.DDD`, `Aviant.Infrastructure.DDD` |
 | Event Sourcing | `Aviant.Core.EventSourcing`, `Aviant.Application.EventSourcing`, `Aviant.Infrastructure.EventSourcing` |
+| ASP.NET Core | `Aviant.Presentation.AspNetCore` |
 | Multi-tenancy | `Aviant.Core.MultiTenancy`, `Aviant.Application.MultiTenancy`, `Aviant.Infrastructure.MultiTenancy` |
 | Persistence | `Aviant.Core.Persistence`, `Aviant.Application.Persistence`, `Aviant.Infrastructure.Persistence` |
 | Identity | `Aviant.Core.Identity`, `Aviant.Application.Identity`, `Aviant.Infrastructure.Identity` |

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <RootNamespace>Aviant.Presentation.AspNetCore</RootNamespace>
+        <AssemblyName>Aviant.Presentation.AspNetCore</AssemblyName>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Kernel\Application\Application.csproj" />
+    </ItemGroup>
+
+</Project>
