@@ -12,7 +12,7 @@
     <PackageVersion Include="Confluent.Kafka" Version="2.3.0" />
     <PackageVersion Include="CsvHelper" Version="31.0.0" />
     <PackageVersion Include="EventStore.Client" Version="22.0.0" />
-    <PackageVersion Include="FluentAssertions" Version="8.8.0" />
+    <PackageVersion Include="AwesomeAssertions" Version="9.6.0" />
     <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="11.9.0" />
     <PackageVersion Include="Hangfire.AspNetCore" Version="1.8.10" />
     <PackageVersion Include="Hangfire.Core" Version="1.8.10" />
