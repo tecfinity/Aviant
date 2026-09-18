@@ -24,30 +24,10 @@ public abstract class RepositoryReadBase<TDbContext, TEntity, TPrimaryKey>
         DbContext = dbContext;
     }
 
-    private TDbContext DbContext { get; }
+    /// <summary>The context this repository reads from; it belongs to its dependency scope and is never disposed here.</summary>
+    protected TDbContext DbContext { get; }
 
-    private DbSet<TEntity> DbSet => DbContext.Set<TEntity>();
-
-    #region IRepositoryRead<TEntity,TPrimaryKey> Members
-
-    public void Dispose()
-    {
-        Dispose(true);
-        GC.SuppressFinalize(this);
-    }
-
-    #endregion
-
-    protected virtual void Dispose(bool disposing)
-    {
-        if (disposing)
-            DbContext.Dispose();
-    }
-
-    ~RepositoryReadBase()
-    {
-        Dispose(false);
-    }
+    protected DbSet<TEntity> DbSet => DbContext.Set<TEntity>();
 
     #region Select/Get/Query
 
@@ -77,13 +57,13 @@ public abstract class RepositoryReadBase<TDbContext, TEntity, TPrimaryKey>
     public virtual Collection<TEntity> GetAllList(Expression<Func<TEntity, bool>> predicate) =>
         new(FindBy(predicate).ToList());
 
-    public virtual ValueTask<Collection<TEntity>> GetAllListAsync(CancellationToken cancellationToken = default) =>
-        new(GetAllList());
+    public virtual async ValueTask<Collection<TEntity>> GetAllListAsync(CancellationToken cancellationToken = default) =>
+        new(await GetAll().ToListAsync(cancellationToken).ConfigureAwait(false));
 
-    public virtual ValueTask<Collection<TEntity>> GetAllListAsync(
+    public virtual async ValueTask<Collection<TEntity>> GetAllListAsync(
         Expression<Func<TEntity, bool>> predicate,
         CancellationToken               cancellationToken = default) =>
-        new(GetAllList(predicate));
+        new(await FindBy(predicate).ToListAsync(cancellationToken).ConfigureAwait(false));
 
 
     public virtual TEntity GetAllListIncluding(
@@ -93,29 +73,35 @@ public abstract class RepositoryReadBase<TDbContext, TEntity, TPrimaryKey>
            .FirstOrDefault(predicate)
      ?? throw new EntityNotFoundException(nameof(predicate));
 
-    public virtual ValueTask<TEntity> GetAllListIncludingAsync(
+    public virtual async ValueTask<TEntity> GetAllListIncludingAsync(
         Expression<Func<TEntity, bool>>            predicate,
         CancellationToken                          cancellationToken = default,
         params Expression<Func<TEntity, object>>[] propertySelectors) =>
-        new(GetAllListIncluding(predicate, propertySelectors));
+        await FindByIncluding(predicate, propertySelectors)
+           .FirstOrDefaultAsync(predicate, cancellationToken)
+           .ConfigureAwait(false)
+     ?? throw new EntityNotFoundException(nameof(predicate));
 
     public virtual TEntity Get(TPrimaryKey id) =>
         FirstOrDefault(id)
      ?? throw new EntityNotFoundException(typeof(TEntity), id);
 
-    public virtual ValueTask<TEntity> GetAsync(
+    public virtual async ValueTask<TEntity> GetAsync(
         TPrimaryKey       id,
         CancellationToken cancellationToken = default) =>
-        new(Get(id));
+        await GetAll()
+           .FirstOrDefaultAsync(_repositoryImplementation.CreateEqualityExpressionForId(id), cancellationToken)
+           .ConfigureAwait(false)
+     ?? throw new EntityNotFoundException(typeof(TEntity), id);
 
 
     public virtual TEntity Single(Expression<Func<TEntity, bool>> predicate) =>
         GetAll().Single(predicate);
 
-    public virtual ValueTask<TEntity> GetSingleAsync(
+    public virtual async ValueTask<TEntity> GetSingleAsync(
         Expression<Func<TEntity, bool>> predicate,
         CancellationToken               cancellationToken = default) =>
-        new(Single(predicate));
+        await GetAll().SingleAsync(predicate, cancellationToken).ConfigureAwait(false);
 
     public virtual TEntity GetSingleIncluding(
         Expression<Func<TEntity, bool>>            predicate,
@@ -124,11 +110,14 @@ public abstract class RepositoryReadBase<TDbContext, TEntity, TPrimaryKey>
            .SingleOrDefault(predicate)
      ?? throw new EntityNotFoundException(nameof(predicate));
 
-    public virtual ValueTask<TEntity> GetSingleIncludingAsync(
+    public virtual async ValueTask<TEntity> GetSingleIncludingAsync(
         Expression<Func<TEntity, bool>>            predicate,
         CancellationToken                          cancellationToken = default,
         params Expression<Func<TEntity, object>>[] propertySelectors) =>
-        new(GetSingleIncluding(predicate, propertySelectors));
+        await GetAllIncluding(propertySelectors)
+           .SingleOrDefaultAsync(predicate, cancellationToken)
+           .ConfigureAwait(false)
+     ?? throw new EntityNotFoundException(nameof(predicate));
 
     public virtual TEntity FirstOrDefault(TPrimaryKey id) =>
         GetAll().FirstOrDefault(_repositoryImplementation.CreateEqualityExpressionForId(id))
@@ -138,15 +127,19 @@ public abstract class RepositoryReadBase<TDbContext, TEntity, TPrimaryKey>
         GetAll().FirstOrDefault(predicate)
      ?? throw new EntityNotFoundException(nameof(predicate));
 
-    public virtual ValueTask<TEntity> FirstOrDefaultAsync(
+    public virtual async ValueTask<TEntity> FirstOrDefaultAsync(
         TPrimaryKey       id,
         CancellationToken cancellationToken = default) =>
-        new(FirstOrDefault(id));
+        await GetAll()
+           .FirstOrDefaultAsync(_repositoryImplementation.CreateEqualityExpressionForId(id), cancellationToken)
+           .ConfigureAwait(false)
+     ?? throw new EntityNotFoundException(nameof(id));
 
-    public virtual ValueTask<TEntity> FirstOrDefaultAsync(
+    public virtual async ValueTask<TEntity> FirstOrDefaultAsync(
         Expression<Func<TEntity, bool>> predicate,
         CancellationToken               cancellationToken = default) =>
-        new(FirstOrDefault(predicate));
+        await GetAll().FirstOrDefaultAsync(predicate, cancellationToken).ConfigureAwait(false)
+     ?? throw new EntityNotFoundException(nameof(predicate));
 
     public virtual TEntity FirstOrDefaultIncluding(
         TPrimaryKey                                id,
@@ -162,17 +155,23 @@ public abstract class RepositoryReadBase<TDbContext, TEntity, TPrimaryKey>
            .FirstOrDefault(predicate)
      ?? throw new EntityNotFoundException(nameof(predicate));
 
-    public virtual ValueTask<TEntity> FirstOrDefaultIncludingAsync(
+    public virtual async ValueTask<TEntity> FirstOrDefaultIncludingAsync(
         TPrimaryKey                                id,
         CancellationToken                          cancellationToken = default,
         params Expression<Func<TEntity, object>>[] propertySelectors) =>
-        new(FirstOrDefaultIncluding(id, propertySelectors));
+        await GetAllIncluding(propertySelectors)
+           .FirstOrDefaultAsync(_repositoryImplementation.CreateEqualityExpressionForId(id), cancellationToken)
+           .ConfigureAwait(false)
+     ?? throw new EntityNotFoundException(nameof(id));
 
-    public virtual ValueTask<TEntity> FirstOrDefaultIncludingAsync(
+    public virtual async ValueTask<TEntity> FirstOrDefaultIncludingAsync(
         Expression<Func<TEntity, bool>>            predicate,
         CancellationToken                          cancellationToken = default,
         params Expression<Func<TEntity, object>>[] propertySelectors) =>
-        new(FirstOrDefaultIncluding(predicate, propertySelectors));
+        await GetAllIncluding(propertySelectors)
+           .FirstOrDefaultAsync(predicate, cancellationToken)
+           .ConfigureAwait(false)
+     ?? throw new EntityNotFoundException(nameof(predicate));
 
     #endregion
 
@@ -181,12 +180,12 @@ public abstract class RepositoryReadBase<TDbContext, TEntity, TPrimaryKey>
     public virtual ValueTask<bool> AnyAsync(
         Expression<Func<TEntity, bool>> predicate,
         CancellationToken               cancellationToken = default) =>
-        new(DbSet.AnyAsync(predicate, cancellationToken));
+        new(GetAll().AnyAsync(predicate, cancellationToken));
 
     public virtual ValueTask<bool> AllAsync(
         Expression<Func<TEntity, bool>> predicate,
         CancellationToken               cancellationToken = default) =>
-        new(DbSet.AllAsync(predicate, cancellationToken));
+        new(GetAll().AllAsync(predicate, cancellationToken));
 
     public virtual int Count() =>
         GetAll().Count();
@@ -195,12 +194,12 @@ public abstract class RepositoryReadBase<TDbContext, TEntity, TPrimaryKey>
         GetAll().Count(predicate);
 
     public virtual ValueTask<int> CountAsync(CancellationToken cancellationToken = default) =>
-        new(Count());
+        new(GetAll().CountAsync(cancellationToken));
 
     public virtual ValueTask<int> CountAsync(
         Expression<Func<TEntity, bool>> predicate,
         CancellationToken               cancellationToken = default) =>
-        new(Count(predicate));
+        new(GetAll().CountAsync(predicate, cancellationToken));
 
     public virtual long LongCount() =>
         GetAll().LongCount();
@@ -209,12 +208,12 @@ public abstract class RepositoryReadBase<TDbContext, TEntity, TPrimaryKey>
         GetAll().LongCount(predicate);
 
     public virtual ValueTask<long> LongCountAsync(CancellationToken cancellationToken = default) =>
-        new(LongCount());
+        new(GetAll().LongCountAsync(cancellationToken));
 
     public virtual ValueTask<long> LongCountAsync(
         Expression<Func<TEntity, bool>> predicate,
         CancellationToken               cancellationToken = default) =>
-        new(LongCount(predicate));
+        new(GetAll().LongCountAsync(predicate, cancellationToken));
 
     #endregion
 }

@@ -8,6 +8,10 @@ using Microsoft.EntityFrameworkCore;
 namespace Aviant.Infrastructure.Persistence.Repository;
 
 /// <inheritdoc cref="Aviant.Core.Persistence.IRepositoryWrite{TEntity,TPrimaryKey}" />
+/// <remarks>
+///     The context belongs to the dependency scope that created it; the repository never
+///     disposes it.
+/// </remarks>
 public abstract class RepositoryWriteBase<TDbContext, TEntity, TPrimaryKey>
     : IRepositoryWrite<TEntity, TPrimaryKey>,
       IRepositoryImplementation<TEntity, TPrimaryKey>
@@ -18,90 +22,32 @@ public abstract class RepositoryWriteBase<TDbContext, TEntity, TPrimaryKey>
 
     protected RepositoryWriteBase(TDbContext dbContext)
     {
+        ArgumentNullException.ThrowIfNull(dbContext);
+
         _repositoryImplementation = this;
-
-        DbContext = dbContext;
+        DbContext                 = dbContext;
     }
 
-    private TDbContext DbContext { get; }
+    /// <summary>The context this repository stages changes in, for queries the base does not cover.</summary>
+    protected TDbContext DbContext { get; }
 
-    private DbSet<TEntity> DbSet => DbContext.Set<TEntity>();
-
-    #region IRepositoryWrite<TEntity,TPrimaryKey> Members
-
-    public void Dispose()
-    {
-        Dispose(true);
-        GC.SuppressFinalize(this);
-    }
-
-    #endregion
-
-    protected virtual void Dispose(bool disposing)
-    {
-        if (disposing)
-            DbContext.Dispose();
-    }
-
-    ~RepositoryWriteBase()
-    {
-        Dispose(false);
-    }
-
-    private TEntity Get(TPrimaryKey id) =>
-        DbSet
-           .FirstOrDefault(_repositoryImplementation.CreateEqualityExpressionForId(id))
-     ?? throw new EntityNotFoundException(typeof(TEntity), id);
-
-    private ValueTask<TEntity> GetAsync(TPrimaryKey id) =>
-        new(Get(id));
-
-    private List<TEntity> GetAllList(Expression<Func<TEntity, bool>> predicate) =>
-        DbSet.Where(predicate).ToList();
-
-    private Task<List<TEntity>> GetAllListAsync(Expression<Func<TEntity, bool>> predicate) =>
-        Task.FromResult(GetAllList(predicate));
+    protected DbSet<TEntity> DbSet => DbContext.Set<TEntity>();
 
     #region Insert
 
-    public virtual TEntity Insert(TEntity entity)
+    public virtual async Task<TEntity> InsertAsync(TEntity entity, CancellationToken cancellationToken = default)
     {
-        // Run the task in async mode
-        Task.Run(
-                async () =>
-                {
-                    // Run entity validation method first
-                    await entity.ValidateAsync()
-                       .ConfigureAwait(false);
-                })
-           .GetAwaiter()
-           .GetResult(); // to get the exception, if any
+        await EnsureValidAsync(entity, cancellationToken).ConfigureAwait(false);
 
-        DbSet.Add(entity);
+        await DbSet.AddAsync(entity, cancellationToken).ConfigureAwait(false);
 
         return entity;
     }
 
-    public virtual Task<TEntity> InsertAsync(TEntity entity, CancellationToken cancellationToken = default) =>
-        Task.FromResult(Insert(entity));
-
-    public virtual TPrimaryKey InsertAndGetId(TEntity entity) =>
-        Insert(entity).Id;
-
     public virtual async Task<TPrimaryKey> InsertAndGetIdAsync(
         TEntity           entity,
-        CancellationToken cancellationToken = default)
-    {
-        var insertedEntity = await InsertAsync(entity, cancellationToken)
-           .ConfigureAwait(false);
-
-        return insertedEntity.Id;
-    }
-
-    public virtual TEntity InsertOrUpdate(TEntity entity) =>
-        entity.IsTransient()
-            ? Insert(entity)
-            : Update(entity);
+        CancellationToken cancellationToken = default) =>
+        (await InsertAsync(entity, cancellationToken).ConfigureAwait(false)).Id;
 
     public virtual async Task<TEntity> InsertOrUpdateAsync(
         TEntity           entity,
@@ -110,135 +56,94 @@ public abstract class RepositoryWriteBase<TDbContext, TEntity, TPrimaryKey>
             ? await InsertAsync(entity, cancellationToken).ConfigureAwait(false)
             : await UpdateAsync(entity, cancellationToken).ConfigureAwait(false);
 
-    public virtual TPrimaryKey InsertOrUpdateAndGetId(TEntity entity) =>
-        InsertOrUpdate(entity).Id;
-
     public virtual async Task<TPrimaryKey> InsertOrUpdateAndGetIdAsync(
         TEntity           entity,
-        CancellationToken cancellationToken = default)
-    {
-        var insertedEntity = await InsertOrUpdateAsync(entity, cancellationToken)
-           .ConfigureAwait(false);
-
-        return insertedEntity.Id;
-    }
+        CancellationToken cancellationToken = default) =>
+        (await InsertOrUpdateAsync(entity, cancellationToken).ConfigureAwait(false)).Id;
 
     #endregion
 
     #region Update
 
-    public virtual TEntity Update(TEntity entity)
-    {
-        // Run the task in async mode
-        Task.Run(
-                async () =>
-                {
-                    // Run entity validation method first
-                    await entity.ValidateAsync()
-                       .ConfigureAwait(false);
-                })
-           .GetAwaiter()
-           .GetResult(); // to get the exception, if any
-
-        DbContext.Entry(entity).State = EntityState.Modified;
-
-        return entity;
-    }
-
-    public virtual TEntity Update(TPrimaryKey id, Action<TEntity> updateAction)
-    {
-        var entity = DbSet
-                        .FirstOrDefault(_repositoryImplementation.CreateEqualityExpressionForId(id))
-                  ?? throw new EntityNotFoundException(nameof(id));
-
-        updateAction(entity);
-        DbContext.Entry(entity).State = EntityState.Modified;
-        return entity;
-    }
-
-    public virtual Task<TEntity> UpdateAsync(
+    /// <summary>
+    ///     Stages an update. A tracked entity keeps EF Core's change tracking, so only changed
+    ///     columns are written; a detached one is attached as modified.
+    /// </summary>
+    public virtual async Task<TEntity> UpdateAsync(
         TEntity           entity,
-        CancellationToken cancellationToken = default) =>
-        Task.FromResult(Update(entity));
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureValidAsync(entity, cancellationToken).ConfigureAwait(false);
+
+        if (DbContext.Entry(entity).State == EntityState.Detached)
+            DbSet.Update(entity);
+
+        return entity;
+    }
 
     public virtual async Task<TEntity> UpdateAsync(
         TPrimaryKey         id,
         Func<TEntity, Task> updateAction,
         CancellationToken   cancellationToken = default)
     {
-        var entity = await GetAsync(id)
-           .ConfigureAwait(false);
+        ArgumentNullException.ThrowIfNull(updateAction);
+
+        var entity = await GetAsync(id, cancellationToken).ConfigureAwait(false);
 
         await updateAction(entity).ConfigureAwait(false);
 
-        DbContext.Entry(entity).State = EntityState.Modified;
-
-        return entity;
+        return await UpdateAsync(entity, cancellationToken).ConfigureAwait(false);
     }
 
     #endregion
 
     #region Delete
 
-    public virtual void Delete(TEntity entity)
-    {
-        // Run the task in async mode
-        Task.Run(
-                async () =>
-                {
-                    // Run entity validation method first
-                    await entity.ValidateAsync()
-                       .ConfigureAwait(false);
-                })
-           .GetAwaiter()
-           .GetResult(); // to get the exception, if any
-
-        DbContext.Entry(entity).State = EntityState.Deleted;
-    }
-
-    public virtual void Delete(TPrimaryKey id)
-    {
-        var entity = Get(id);
-        Delete(entity);
-    }
-
-    public virtual void Delete(Expression<Func<TEntity, bool>> predicate)
-    {
-        foreach (var entity in GetAllList(predicate))
-            Delete(entity);
-    }
-
-    public virtual Task DeleteAsync(
+    public virtual async Task DeleteAsync(
         TEntity           entity,
         CancellationToken cancellationToken = default)
     {
-        Delete(entity);
+        await EnsureValidAsync(entity, cancellationToken).ConfigureAwait(false);
 
-        return Task.CompletedTask;
+        DbSet.Remove(entity);
     }
 
-    public virtual Task DeleteAsync(
+    public virtual async Task DeleteAsync(
         TPrimaryKey       id,
         CancellationToken cancellationToken = default)
     {
-        Delete(id);
+        var entity = await GetAsync(id, cancellationToken).ConfigureAwait(false);
 
-        return Task.CompletedTask;
+        await DeleteAsync(entity, cancellationToken).ConfigureAwait(false);
     }
 
     public virtual async Task DeleteAsync(
         Expression<Func<TEntity, bool>> predicate,
         CancellationToken               cancellationToken = default)
     {
-        List<TEntity> entities = await GetAllListAsync(predicate)
+        List<TEntity> entities = await DbSet.Where(predicate)
+           .ToListAsync(cancellationToken)
            .ConfigureAwait(false);
 
         foreach (var entity in entities)
-            await DeleteAsync(entity, cancellationToken)
-               .ConfigureAwait(false);
+            await DeleteAsync(entity, cancellationToken).ConfigureAwait(false);
     }
 
     #endregion
+
+    private async Task<TEntity> GetAsync(TPrimaryKey id, CancellationToken cancellationToken) =>
+        await DbSet
+           .FirstOrDefaultAsync(_repositoryImplementation.CreateEqualityExpressionForId(id), cancellationToken)
+           .ConfigureAwait(false)
+     ?? throw new EntityNotFoundException(typeof(TEntity), id);
+
+    private static async Task EnsureValidAsync(TEntity entity, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(entity);
+
+        if (!await entity.ValidateAsync(cancellationToken).ConfigureAwait(false))
+            throw new DomainRuleException($"{typeof(TEntity).Name} {entity.Id} is not valid.");
+    }
 }
 
 public abstract class RepositoryWrite<TDbContext, TEntity, TPrimaryKey>

@@ -3,7 +3,7 @@ using Aviant.Core.Entities;
 
 namespace Aviant.Infrastructure.Persistence.Repository;
 
-internal interface IRepositoryImplementation<TEntity, in TPrimaryKey> : IDisposable
+internal interface IRepositoryImplementation<TEntity, in TPrimaryKey>
     where TEntity : Entity<TPrimaryKey>
 {
     public Expression<Func<TEntity, bool>> CreateEqualityExpressionForId(TPrimaryKey id)
