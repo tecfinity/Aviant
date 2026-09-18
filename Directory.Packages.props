@@ -6,7 +6,6 @@
 
   <ItemGroup>
     <PackageVersion Include="Ardalis.GuardClauses" Version="4.4.0" />
-    <PackageVersion Include="AutoMapper" Version="16.1.1" />
     <PackageVersion Include="BouncyCastle.Cryptography" Version="2.6.2" />
     <PackageVersion Include="Castle.Core" Version="5.1.1" />
     <PackageVersion Include="Castle.Core.AsyncInterceptor" Version="2.1.0" />
