@@ -3,6 +3,7 @@ using Aviant.Application.Commands;
 using Aviant.Application.Queries;
 using Aviant.Core.Messages;
 using MediatR;
+using Microsoft.Extensions.Options;
 
 namespace Aviant.Application.Orchestration;
 
@@ -14,16 +15,35 @@ public abstract class OrchestratorBase
 
     private readonly IMessages _messages;
 
+    private readonly OrchestratorOptions _options;
+
 
     protected OrchestratorBase(
         IMessages                   messages,
         IApplicationEventDispatcher applicationEventDispatcher,
         IMediator                   mediator)
+        : this(messages, applicationEventDispatcher, mediator, Options.Create(new OrchestratorOptions()))
+    { }
+
+    protected OrchestratorBase(
+        IMessages                     messages,
+        IApplicationEventDispatcher   applicationEventDispatcher,
+        IMediator                     mediator,
+        IOptions<OrchestratorOptions> options)
     {
+        ArgumentNullException.ThrowIfNull(options);
+
         _messages                   = messages;
         _applicationEventDispatcher = applicationEventDispatcher;
         _mediator                   = mediator;
+        _options                    = options.Value;
     }
+
+    /// <summary>
+    ///     Whether <paramref name="exception" /> is a domain refusal, to be reported to the
+    ///     caller as a failed response rather than propagated.
+    /// </summary>
+    protected bool IsRefusal(Exception exception) => _options.IsRefusal(exception);
 
     protected async Task<(TCommandResponse commandResponse, List<string>? _messages)>
         PreUnitOfWorkAsync<TCommand, TCommandResponse>(
@@ -31,8 +51,17 @@ public abstract class OrchestratorBase
             CancellationToken cancellationToken = default)
         where TCommand : class, IRequest<TCommandResponse>
     {
-        var commandResponse = await _mediator.Send(command, cancellationToken)
-           .ConfigureAwait(false);
+        TCommandResponse commandResponse;
+
+        try
+        {
+            commandResponse = await _mediator.Send(command, cancellationToken)
+               .ConfigureAwait(false);
+        }
+        catch (Exception exception) when (IsRefusal(exception))
+        {
+            return (default!, [exception.Message]);
+        }
 
         // Fire pre/post notifications
         await _applicationEventDispatcher.FirePreCommitEventsAsync(cancellationToken)
@@ -76,8 +105,17 @@ public abstract class OrchestratorBase
         IQuery<T>         query,
         CancellationToken cancellationToken = default)
     {
-        var queryResponse = await _mediator.Send(query, cancellationToken)
-           .ConfigureAwait(false);
+        T queryResponse;
+
+        try
+        {
+            queryResponse = await _mediator.Send(query, cancellationToken)
+               .ConfigureAwait(false);
+        }
+        catch (Exception exception) when (IsRefusal(exception))
+        {
+            return new OrchestratorResponse([exception.Message]);
+        }
 
         return _messages.HasMessages()
             ? new OrchestratorResponse(_messages.GetAll())
@@ -94,6 +132,14 @@ public sealed class Orchestrator
         IApplicationEventDispatcher applicationEventDispatcher,
         IMediator                   mediator)
         : base(messages, applicationEventDispatcher, mediator)
+    { }
+
+    public Orchestrator(
+        IMessages                     messages,
+        IApplicationEventDispatcher   applicationEventDispatcher,
+        IMediator                     mediator,
+        IOptions<OrchestratorOptions> options)
+        : base(messages, applicationEventDispatcher, mediator, options)
     { }
 
     #region IOrchestrator Members

@@ -3,6 +3,8 @@ using Aviant.Application.Commands;
 using Aviant.Application.Orchestration;
 using Aviant.Core.Messages;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace Aviant.Application.Persistence.Orchestration;
 
@@ -19,6 +21,14 @@ public sealed class Orchestrator<TDbContext>
         IApplicationEventDispatcher applicationEventDispatcher,
         IMediator                   mediator)
         : base(messages, applicationEventDispatcher, mediator) => _unitOfWork = unitOfWork;
+
+    public Orchestrator(
+        IUnitOfWork<TDbContext>       unitOfWork,
+        IMessages                     messages,
+        IApplicationEventDispatcher   applicationEventDispatcher,
+        IMediator                     mediator,
+        IOptions<OrchestratorOptions> options)
+        : base(messages, applicationEventDispatcher, mediator, options) => _unitOfWork = unitOfWork;
 
     #region IOrchestrator<TDbContext> Members
 
@@ -44,7 +54,9 @@ public sealed class Orchestrator<TDbContext>
 
             return new OrchestratorResponse(result, affectedRows);
         }
-        catch (Exception exception)
+        // A failed save (constraint or concurrency conflict) and a refusal raised while
+        // saving are answers for the caller. Anything else is a fault and propagates.
+        catch (Exception exception) when (exception is DbUpdateException || IsRefusal(exception))
         {
             return new OrchestratorResponse(
                 new List<string>
