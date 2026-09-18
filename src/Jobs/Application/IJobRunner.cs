@@ -16,7 +16,7 @@ public interface IJobRunner
         where TJobOptions : class, IJobOptions
         where TJob : IJob<TJobOptions>;
 
-    string RunAtDateTime<TJob, TJobOptions>(DateTime dateTime, Action<TJobOptions>? configureJobOptions = null)
+    string RunAtDateTime<TJob, TJobOptions>(DateTimeOffset dateTime, Action<TJobOptions>? configureJobOptions = null)
         where TJobOptions : class, IJobOptions
         where TJob : IJob<TJobOptions>;
 
@@ -27,9 +27,21 @@ public interface IJobRunner
     string RunRecurring<TJob, TJobOptions>(
         string               jobId,
         string               cron,
-        Action<TJobOptions>? configureJobOptions = null)
+        Action<TJobOptions>? configureJobOptions = null,
+        TimeZoneInfo?        timeZone            = null,
+        string?              queue               = null)
         where TJobOptions : class, IJobOptions
         where TJob : IJob<TJobOptions>;
+
+    /// <summary>
+    ///     Schedules <typeparamref name="TJob" /> on <paramref name="cron" />, replacing any schedule with the same id.
+    /// </summary>
+    /// <param name="jobId">A stable id; scheduling the same id again updates it.</param>
+    /// <param name="cron">The schedule, e.g. <c>Cron.Hourly()</c> or <c>"*/15 * * * *"</c>.</param>
+    /// <param name="timeZone">The zone the schedule is read in; UTC when omitted.</param>
+    /// <param name="queue">The queue to run in; the default queue when omitted.</param>
+    string RunRecurring<TJob>(string jobId, string cron, TimeZoneInfo? timeZone = null, string? queue = null)
+        where TJob : IRecurringJob;
 
     void TriggerRecurringJob(string id);
 

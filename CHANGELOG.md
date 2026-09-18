@@ -12,6 +12,8 @@ Aviant 2 removes the static service locator, makes persistence truly asynchronou
 - `AddKurrentDb(connectionString)` registers the KurrentDB gRPC client. Accepts `kurrentdb://` and `esdb://` connection strings.
 - `Clock.TimeProvider`: every clock provider reads time from a replaceable `TimeProvider`.
 - `AuditingInterceptor` and `UserAuditingInterceptor` (Identity): audit times, soft deletes, read-only entities, and the user who made each change, on every save, synchronous or not. Write contexts add them on their own, and any other `DbContext` can opt in.
+- `AddAviantJobs(jobs => jobs.AddAssemblies(...))` registers `IJobRunner` and every job, and checks at startup that each job can be constructed. By default it logs the ones that can't and keeps going; set `FailOnUnresolvableJobs` to stop the host instead. `Validate(types)` adds jobs registered by interface.
+- `IRecurringJob` and `IJobRunner.RunRecurring<TJob>(id, cron, timeZone, queue)` for jobs that run on a schedule and work out for themselves what is due. Recurring jobs also take a time zone (UTC by default) and a queue.
 - Model conventions `UseDomainAssignedKeys()` (Guid keys are never store-generated, so a new child of a loaded parent is inserted instead of updated) and `UseUtcTimestamps()` (every `DateTimeOffset` is stored as UTC, which PostgreSQL requires).
 - Integration tests for the events repository against a real KurrentDB container.
 - `AddAviantCqrs(assemblies, configureOrchestrator)` registers the whole MediatR pipeline in one call: handlers, processors, interceptors, retry decorators and the ordered behaviours.
@@ -25,6 +27,7 @@ Aviant 2 removes the static service locator, makes persistence truly asynchronou
 - **Repositories are async-only.** Reads run real EF Core async queries with cancellation. Writes call `ValidateAsync` and refuse an invalid entity with `DomainRuleException`, where before its result was ignored. `UpdateAsync` keeps change tracking, so only changed columns are written.
 - Repositories and `UnitOfWork` no longer dispose the context they were given; the DI scope owns it.
 - Event-sourced `CommandHandler` takes `IEventsService` in its constructor.
+- **Breaking:** `IJob<T>.PerformAsync` takes a `CancellationToken`, which Hangfire cancels when the server shuts down. `RunAtDateTime` takes a `DateTimeOffset`, and `RunWithDelay` schedules relative to the server's clock instead of `Clock.Now`.
 - Audit times (`Created`, `Updated`, `Deleted`) are `DateTimeOffset`, taken from `Clock.TimeProvider`.
 - Read contexts apply the soft-delete filter too.
 - The soft-delete query filter is the named filter `ModelBuilderConventions.SoftDeleteFilter`, so it combines with a context's own filters. When an entity already has an anonymous filter, the condition is ANDed into it, because EF Core does not allow both kinds on one entity.
@@ -67,7 +70,8 @@ Aviant 2 removes the static service locator, makes persistence truly asynchronou
    with `services.AddKurrentDb(connectionString)`, and use a gRPC connection string such as `esdb://admin:changeit@host:2113?tls=false`. The server must expose gRPC (EventStoreDB 20.10 or later, or KurrentDB); existing streams are read as before.
 5. **Logging:** hosts that use Serilog reference `Serilog.AspNetCore` themselves and call `UseSerilog()`; Aviant's log entries reach it through `ILogger<T>`. Subclasses of `LoggerBehaviour` or `PerformanceBehaviour` take an `ILogger<T>` in their constructor, and slow-request handling overrides `OnLongRunningAsync`.
 6. **Audited entities** change `Created`, `Updated` and `Deleted` to `DateTimeOffset`. On PostgreSQL with Npgsql, a UTC `DateTime` is already stored as `timestamp with time zone`, so the column type stays the same. Code that relied on deleted rows still being returned now needs `IgnoreQueryFilters`.
-7. **Tests that control time** set `Clock.TimeProvider` to a fake instead of writing a custom `IClockProvider`.
+7. **Jobs** add a `CancellationToken` parameter to `PerformAsync`, and hosts replace `AddSingleton<IJobRunner, JobRunner>()` with `AddAviantJobs(...)`. Hangfire finds a stored job by its method signature, so a job enqueued before the upgrade cannot run after it. Deploy when the queue is empty, or requeue the failed jobs afterwards.
+8. **Tests that control time** set `Clock.TimeProvider` to a fake instead of writing a custom `IClockProvider`.
 
 ## [1.0.0-preview.7] - 2020-10-18
 

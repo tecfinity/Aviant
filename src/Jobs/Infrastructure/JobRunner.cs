@@ -1,5 +1,4 @@
 using Aviant.Application.Jobs;
-using Aviant.Core.Timing;
 using Hangfire;
 using Hangfire.States;
 
@@ -24,7 +23,7 @@ public class JobRunner : IJobRunner
         where TJob : IJob<TJobOptions>
         where TJobOptions : class, IJobOptions
     {
-        return BackgroundJobClient.Enqueue<TJob>(job => job.PerformAsync(BuildOptions(configureJobOptions)));
+        return BackgroundJobClient.Enqueue<TJob>(job => job.PerformAsync(BuildOptions(configureJobOptions), CancellationToken.None));
     }
 
     /// <inheritdoc />
@@ -34,7 +33,7 @@ public class JobRunner : IJobRunner
     {
         return BackgroundJobClient.Create<TJob>(
             job =>
-                job.PerformAsync(BuildOptions(configureJobOptions)),
+                job.PerformAsync(BuildOptions(configureJobOptions), CancellationToken.None),
             state);
     }
 
@@ -45,18 +44,18 @@ public class JobRunner : IJobRunner
     {
         return BackgroundJobClient.Schedule<TJob>(
             job =>
-                job.PerformAsync(BuildOptions(configureJobOptions)),
-            Clock.Now + delay);
+                job.PerformAsync(BuildOptions(configureJobOptions), CancellationToken.None),
+            delay);
     }
 
     /// <inheritdoc />
-    public string RunAtDateTime<TJob, TJobOptions>(DateTime dateTime, Action<TJobOptions>? configureJobOptions = null)
+    public string RunAtDateTime<TJob, TJobOptions>(DateTimeOffset dateTime, Action<TJobOptions>? configureJobOptions = null)
         where TJob : IJob<TJobOptions>
         where TJobOptions : class, IJobOptions
     {
         return BackgroundJobClient.Schedule<TJob>(
             job =>
-                job.PerformAsync(BuildOptions(configureJobOptions)),
+                job.PerformAsync(BuildOptions(configureJobOptions), CancellationToken.None),
             dateTime);
     }
 
@@ -67,21 +66,38 @@ public class JobRunner : IJobRunner
     {
         return BackgroundJobClient.ContinueJobWith<TJob>(
             previousJobId,
-            job => job.PerformAsync(BuildOptions(configureJobOptions)));
+            job => job.PerformAsync(BuildOptions(configureJobOptions), CancellationToken.None));
     }
 
     /// <inheritdoc />
     public string RunRecurring<TJob, TJobOptions>(
         string               jobId,
         string               cron,
-        Action<TJobOptions>? configureJobOptions = null)
+        Action<TJobOptions>? configureJobOptions = null,
+        TimeZoneInfo?        timeZone            = null,
+        string?              queue               = null)
         where TJob : IJob<TJobOptions>
         where TJobOptions : class, IJobOptions
     {
         RecurringJobManager.AddOrUpdate<TJob>(
             jobId,
-            job => job.PerformAsync(BuildOptions(configureJobOptions)),
-            cron);
+            queue ?? EnqueuedState.DefaultQueue,
+            job => job.PerformAsync(BuildOptions(configureJobOptions), CancellationToken.None),
+            cron,
+            new RecurringJobOptions { TimeZone = timeZone ?? TimeZoneInfo.Utc });
+
+        return jobId;
+    }
+
+    public string RunRecurring<TJob>(string jobId, string cron, TimeZoneInfo? timeZone = null, string? queue = null)
+        where TJob : IRecurringJob
+    {
+        RecurringJobManager.AddOrUpdate<TJob>(
+            jobId,
+            queue ?? EnqueuedState.DefaultQueue,
+            job => job.RunAsync(CancellationToken.None),
+            cron,
+            new RecurringJobOptions { TimeZone = timeZone ?? TimeZoneInfo.Utc });
 
         return jobId;
     }
