@@ -9,6 +9,6 @@ internal interface ICommandHandler<in TCommand, TResponse>
     where TCommand : ICommand<TResponse>;
 
 internal interface ICommandHandler<in TCommand>
-    : IRequestHandler<TCommand>,
+    : IRequestHandler<TCommand, Unit>,
         IRetry
     where TCommand : ICommand<Unit>;

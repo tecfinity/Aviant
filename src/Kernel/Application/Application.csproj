@@ -10,7 +10,7 @@
         <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
         <PackageReference Include="Hashids.net" />
         <PackageReference Include="Humanizer.Core" />
-        <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" />
+        <PackageReference Include="MediatR" />
         <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" />
         <PackageReference Include="Scrutor" />
     </ItemGroup>
