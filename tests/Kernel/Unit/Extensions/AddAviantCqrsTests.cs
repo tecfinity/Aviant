@@ -66,11 +66,31 @@ public sealed class AddAviantCqrsTests
         var services = new ServiceCollection();
         services.AddAviantCqrs([typeof(ICommand).Assembly]);
         await using var provider = services.BuildServiceProvider();
-        var validator = provider.GetServices<IHostedService>().OfType<CqrsHandlerValidator>().Single();
+        var validator = new CqrsHandlerValidator(
+            [typeof(ICommand).Assembly],
+            provider.GetRequiredService<IServiceProviderIsService>());
 
         var act = () => validator.StartAsync(TestContext.Current.CancellationToken);
 
         await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task StartupFailsForRequestsInAReferencedModuleThatWasNeverRegistered()
+    {
+        // Nothing from this assembly is registered, but the host (root) references it.
+        var services = new ServiceCollection();
+        services.AddAviantCqrs([typeof(ICommand).Assembly]);
+        await using var provider = services.BuildServiceProvider();
+        var validator = new CqrsHandlerValidator(
+            [],
+            provider.GetRequiredService<IServiceProviderIsService>(),
+            rootAssembly: typeof(AddAviantCqrsTests).Assembly);
+
+        var act = () => validator.StartAsync(TestContext.Current.CancellationToken);
+
+        (await act.Should().ThrowAsync<InvalidOperationException>())
+           .Which.Message.Should().Contain(nameof(Orphan)).And.Contain(nameof(Greet));
     }
 
     private static ServiceProvider BuildProvider(Action<OrchestratorOptions>? configure = null)

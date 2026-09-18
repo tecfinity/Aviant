@@ -24,8 +24,9 @@ public static class CqrsServiceCollectionExtensions
     /// </summary>
     /// <remarks>
     ///     Also registers a hosted service that fails application startup if a request type
-    ///     in <paramref name="assemblies" /> has no handler. Without it, a module left out of
-    ///     the assembly list fails only when one of its requests is first sent.
+    ///     has no handler: those in <paramref name="assemblies" />, and those in any assembly
+    ///     the host references that builds on MediatR or Aviant. Without it, a module left out
+    ///     of the assembly list fails only when one of its requests is first sent.
     /// </remarks>
     /// <param name="services">The service collection.</param>
     /// <param name="assemblies">The assemblies holding requests and their handlers.</param>
@@ -74,7 +75,8 @@ public static class CqrsServiceCollectionExtensions
         services.AddSingleton<IHostedService>(
             provider => new CqrsHandlerValidator(
                 requestAssemblies,
-                provider.GetRequiredService<IServiceProviderIsService>()));
+                provider.GetRequiredService<IServiceProviderIsService>(),
+                Assembly.GetEntryAssembly()));
 
         return services;
     }
