@@ -24,10 +24,10 @@ public sealed class RetryRequestProcessor<TRequest, TResponse>
 
     public Task<TResponse> Handle(TRequest request, CancellationToken cancellationToken)
     {
-        return _retryPolicy?.ExecuteAsync(
-                   () =>
-                       _inner.Handle(request, cancellationToken))
-            ?? throw new NullReferenceException(nameof(_retryPolicy));
+        // A handler that does not implement IRetry has no policy and is called directly.
+        return _retryPolicy is null
+            ? _inner.Handle(request, cancellationToken)
+            : _retryPolicy.ExecuteAsync(() => _inner.Handle(request, cancellationToken));
     }
 
     #endregion
