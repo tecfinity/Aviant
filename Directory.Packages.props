@@ -7,7 +7,7 @@
   <ItemGroup>
     <PackageVersion Include="Ardalis.GuardClauses" Version="4.4.0" />
     <PackageVersion Include="BouncyCastle.Cryptography" Version="2.7.0" />
-    <PackageVersion Include="Castle.Core" Version="5.1.1" />
+    <PackageVersion Include="Castle.Core" Version="5.2.1" />
     <PackageVersion Include="Castle.Core.AsyncInterceptor" Version="2.1.0" />
     <PackageVersion Include="Confluent.Kafka" Version="2.3.0" />
     <PackageVersion Include="CsvHelper" Version="31.0.0" />
