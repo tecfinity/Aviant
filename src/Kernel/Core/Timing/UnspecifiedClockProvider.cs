@@ -2,7 +2,7 @@ namespace Aviant.Core.Timing;
 
 public sealed class UnspecifiedClockProvider : IClockProvider
 {
-    public DateTime Now => DateTime.Now;
+    public DateTime Now => DateTime.SpecifyKind(Clock.TimeProvider.GetLocalNow().DateTime, DateTimeKind.Local);
 
     public DateTimeKind Kind => DateTimeKind.Unspecified;
 

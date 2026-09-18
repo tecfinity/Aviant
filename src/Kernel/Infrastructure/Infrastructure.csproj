@@ -10,7 +10,6 @@
 
         <PackageReference Include="NetEscapades.Configuration.Yaml" />
 
-        <PackageReference Include="Serilog.Settings.Configuration" />
     </ItemGroup>
 
     <ItemGroup>

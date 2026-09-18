@@ -7,6 +7,8 @@ public static class Clock
 {
     private static IClockProvider? _provider;
 
+    private static TimeProvider _timeProvider = TimeProvider.System;
+
     /// <summary>
     ///     This object is used to perform all <see cref="Clock" /> operations.
     ///     Default value: <see cref="UnspecifiedClockProvider" />.
@@ -16,6 +18,17 @@ public static class Clock
         get => _provider ?? ClockProviders.Unspecified;
         set => _provider =
             value ?? throw new ArgumentNullException(nameof(value), "Can not set Clock.Provider to null!");
+    }
+
+    /// <summary>
+    ///     The source of the current time for every clock provider. Defaults to <see cref="System.TimeProvider.System" />;
+    ///     set it once at startup, or to a fake in tests. Domain events and exceptions read the time through
+    ///     <see cref="Clock" /> because they are created without dependency injection.
+    /// </summary>
+    public static TimeProvider TimeProvider
+    {
+        get => _timeProvider;
+        set => _timeProvider = value ?? throw new ArgumentNullException(nameof(value));
     }
 
     /// <summary>

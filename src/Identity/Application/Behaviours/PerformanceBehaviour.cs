@@ -1,8 +1,12 @@
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Aviant.Application.Identity.Behaviours;
 
-public class PerformanceBehaviour<TRequest, TResponse>
+/// <summary>
+///     Warns about slow requests, naming the user who made them.
+/// </summary>
+public partial class PerformanceBehaviour<TRequest, TResponse>
     : Application.Behaviours.PerformanceBehaviour<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
 {
@@ -10,47 +14,31 @@ public class PerformanceBehaviour<TRequest, TResponse>
 
     private readonly IIdentityService _identityService;
 
-    public PerformanceBehaviour(ICurrentUserService currentUserService, IIdentityService identityService)
+    public PerformanceBehaviour(
+        ICurrentUserService                                              currentUserService,
+        IIdentityService                                                 identityService,
+        ILogger<Application.Behaviours.PerformanceBehaviour<TRequest, TResponse>> logger)
+        : base(logger)
     {
-        _currentUserService      = currentUserService;
-        _identityService = identityService;
+        _currentUserService = currentUserService;
+        _identityService    = identityService;
     }
 
-    #region IPipelineBehavior<TRequest,TResponse> Members
-
-    public new async Task<TResponse> Handle(
-        TRequest                          request,
-        RequestHandlerDelegate<TResponse> next,
-        CancellationToken                 cancellationToken)
+    protected override async Task OnLongRunningAsync(
+        TRequest          request,
+        long              elapsedMilliseconds,
+        CancellationToken cancellationToken)
     {
-        Timer.Start();
-        var response = await next().ConfigureAwait(false);
-        Timer.Stop();
+        var userId   = _currentUserService.UserId;
+        var userName = Guid.Empty == userId
+            ? string.Empty
+            : await _identityService.GetUserNameAsync(userId, cancellationToken).ConfigureAwait(false);
 
-        var elapsedMilliseconds = Timer.ElapsedMilliseconds;
-
-        //TODO: Ability to configure the threshold
-        if (500 >= elapsedMilliseconds)
-            return response;
-
-        var requestName = typeof(TRequest).Name;
-        var userId      = _currentUserService.UserId;
-        var username    = string.Empty;
-
-        if (Guid.Empty != userId)
-            username = await _identityService.GetUserNameAsync(userId, cancellationToken)
-               .ConfigureAwait(false);
-
-        Logger.Warning(
-            "Long Running Request detected: {Name} ({ElapsedMilliseconds} milliseconds), UserId: {@UserId}, Username: {@Username}, Request: {@Request}",
-            requestName,
-            elapsedMilliseconds,
-            userId,
-            username,
-            request);
-
-        return response;
+        LogLongRunning(Logger, typeof(TRequest).Name, elapsedMilliseconds, userId, userName);
     }
 
-    #endregion
+    [LoggerMessage(
+        Level   = LogLevel.Warning,
+        Message = "Long running request: {Name} ({ElapsedMilliseconds} milliseconds), UserId: {UserId}, UserName: {UserName}")]
+    private static partial void LogLongRunning(ILogger logger, string name, long elapsedMilliseconds, Guid userId, string userName);
 }

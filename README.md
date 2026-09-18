@@ -145,6 +145,17 @@ Handlers that implement `IRetry` are wrapped in their Polly policy; others are c
 
 **Startup fails if a request has no handler.** A hosted service checks every request type in the given assemblies and lists those with no registered handler, so a module left out of the list is caught at startup instead of on the first request.
 
+### Logging and time
+
+Aviant logs through `Microsoft.Extensions.Logging`, so it uses whatever provider the host configures (Serilog, OpenTelemetry, the console). It never logs a request's contents, only its name, because commands carry passwords and personal data.
+
+Domain events, exceptions and audit fields take their timestamps from `Clock`, which reads a `TimeProvider`. Replace it in tests to control time:
+
+```csharp
+Clock.TimeProvider = new FakeTimeProvider(new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero));
+Clock.Provider     = ClockProviders.Utc;
+```
+
 ### Domain Refusals
 
 An aggregate refuses an operation by throwing `DomainRuleException`:
