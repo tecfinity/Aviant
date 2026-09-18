@@ -3,7 +3,6 @@
     <PropertyGroup>
         <RootNamespace>Aviant.Core.DDD</RootNamespace>
         <AssemblyName>Aviant.Core.DDD</AssemblyName>
-        <Version>1.0.0-rc.1</Version>
     </PropertyGroup>
 
     <ItemGroup>

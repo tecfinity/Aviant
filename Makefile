@@ -5,7 +5,7 @@
 .PHONY: help sonar
 
 # Include environment variables from .env file
-include .env
+-include .env
 export $(shell sed 's/=.*//' .env)
 
 # Display help information about this Makefile.

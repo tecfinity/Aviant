@@ -3,7 +3,6 @@
     <PropertyGroup>
         <RootNamespace>Aviant.Infrastructure.Identity</RootNamespace>
         <AssemblyName>Aviant.Infrastructure.Identity</AssemblyName>
-        <Version>1.0.0-rc.1</Version>
     </PropertyGroup>
 
     <ItemGroup>

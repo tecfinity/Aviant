@@ -3,7 +3,6 @@
     <PropertyGroup>
         <RootNamespace>Aviant.Infrastructure.Jobs</RootNamespace>
         <AssemblyName>Aviant.Infrastructure.Jobs</AssemblyName>
-        <Version>1.0.0-rc.1</Version>
     </PropertyGroup>
 
     <ItemGroup>

@@ -1,22 +1,18 @@
 <Project>
-    <Target Name="AfterPack" AfterTargets="Pack">
-        <!-- Copy the full output file structure into the root .build/Release dir -->
-        <ItemGroup>
-            <Binaries Include="bin/$(Configuration)/**/$(MSBuildProjectName).*" />
-        </ItemGroup>
-        <Copy SourceFiles="@(Binaries)"
-              DestinationFolder="$(MSBuildProjectDirectory)/../../.build/$(Configuration)/$(MSBuildProjectName)/%(RecursiveDir)"
-              Condition="'$(IsPackable)'!='false'" />
-        <!-- Error handling for file copy -->
-        <OnError ExecuteTargets="HandleCopyError" />
-    </Target>
+    <!-- Per-module package descriptions. Evaluated after the project, so the module path is known. -->
+    <PropertyGroup Condition="'$(IsPackable)' == 'true'">
+        <_AviantModule>$([System.IO.Path]::GetFileName($([System.IO.Path]::GetDirectoryName($(MSBuildProjectDirectory)))))</_AviantModule>
+        <_AviantLayer>$([System.IO.Path]::GetFileName($(MSBuildProjectDirectory)))</_AviantLayer>
+        <Description Condition="'$(_AviantModule)' == 'Kernel'">Aviant $(_AviantLayer): the kernel every Aviant module builds on. Entities, commands, queries, the orchestrator and the MediatR pipeline, use cases and cross-cutting registration.</Description>
+        <Description Condition="'$(_AviantModule)' == 'DDD'">Aviant DDD $(_AviantLayer): Domain-Driven Design building blocks: aggregates, value objects and domain events.</Description>
+        <Description Condition="'$(_AviantModule)' == 'EventSourcing'">Aviant Event Sourcing $(_AviantLayer): event-sourced aggregates, an EventStore repository and a Kafka event bus.</Description>
+        <Description Condition="'$(_AviantModule)' == 'Persistence'">Aviant Persistence $(_AviantLayer): EF Core read/write contexts, repositories, unit of work and auditing.</Description>
+        <Description Condition="'$(_AviantModule)' == 'Identity'">Aviant Identity $(_AviantLayer): ASP.NET Core Identity integration, JWT issuance and audited identity persistence.</Description>
+        <Description Condition="'$(_AviantModule)' == 'Email'">Aviant Email $(_AviantLayer): an email service over MailKit.</Description>
+        <Description Condition="'$(_AviantModule)' == 'Jobs'">Aviant Jobs $(_AviantLayer): background jobs over Hangfire.</Description>
+    </PropertyGroup>
 
-    <!-- Error handling target -->
-    <Target Name="HandleCopyError">
-        <Message Text="Warning: One or more files failed to copy during the AfterPack target." Importance="high" />
-    </Target>
-
-    <!-- Clean target removes the bin/ and obj/ directories -->
+    <!-- Clean removes bin/ and obj/ entirely. -->
     <Target Name="AfterClean">
         <RemoveDir Directories="$(BaseIntermediateOutputPath);$(BaseOutputPath)" />
     </Target>
