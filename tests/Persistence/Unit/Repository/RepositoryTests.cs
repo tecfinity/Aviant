@@ -88,6 +88,19 @@ public sealed class RepositoryTests
         await act.Should().ThrowAsync<EntityNotFoundException>();
     }
 
+    [Fact]
+    public async Task ACombinedRepositoryReadsWhatItWrote()
+    {
+        await using var context = WriteContext.Create();
+        var repository = new Library(context);
+
+        await repository.InsertAsync(new Book { Id = 1, Title = "Dune" }, TestContext.Current.CancellationToken);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        (await repository.GetAsync(1, TestContext.Current.CancellationToken)).Title.Should().Be("Dune");
+        (await repository.CountAsync(TestContext.Current.CancellationToken)).Should().Be(1);
+    }
+
     public sealed class Book : Entity<int>
     {
         public string Title { get; set; } = string.Empty;
@@ -115,6 +128,8 @@ public sealed class RepositoryTests
     }
 
     private sealed class Books(WriteContext context) : RepositoryWrite<WriteContext, Book, int>(context);
+
+    private sealed class Library(WriteContext context) : Repository<WriteContext, Book, int>(context);
 
     private sealed class ReadBooks(ReadContext context) : RepositoryRead<ReadContext, Book, int>(context);
 }
