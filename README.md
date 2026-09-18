@@ -112,7 +112,7 @@ services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 ```
 Kernel/Core
-    └── Kernel/Application  (adds MediatR)
+    └── Kernel/Application  (adds MediatR 12.5.0)
             └── Kernel/Infrastructure  (adds DI helpers)
 DDD/Core
     └── DDD/Application      (extends Kernel/Application)
@@ -138,6 +138,15 @@ Jobs/Application
 2. Add `Library/Aviant/Aviant.sln` or individual `.csproj` references to your solution
 3. Reference the modules you need from your domain projects
 4. Register via the `Add*` extension methods in your `Program.cs` or DI registration class
+
+## Dependencies and Licensing
+
+Aviant is MIT licensed and keeps its dependency tree free of commercial or copyleft terms, so using it never obliges you to buy a licence or publish your source.
+
+- **MediatR is pinned to 12.5.0**, the last Apache-2.0 release. MediatR 13 and later need a commercial licence key; do not float the version upwards.
+- **No object mapper is bundled.** AutoMapper 15 and later are RPL-1.5 or commercial, so the former `IMapFrom`/`IMapTo` helpers were removed. Map explicitly (a static `From(entity)` factory on the DTO) or use a source generator such as [Mapperly](https://github.com/riok/mapperly).
+- **Tests use AwesomeAssertions**, the Apache-2.0 continuation of FluentAssertions (whose version 8 is non-commercial only).
+- **Known vulnerabilities fail the build.** NuGet audit covers transitive packages and treats moderate, high and critical advisories (NU1902–NU1904) as errors.
 
 ## Contribution
 
