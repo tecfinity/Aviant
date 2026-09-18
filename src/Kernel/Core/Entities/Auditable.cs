@@ -14,7 +14,7 @@ public interface IHasCreationTime : IAuditedEntity
     /// <summary>
     ///     The time the entity was created
     /// </summary>
-    public DateTime Created { get; set; }
+    public DateTimeOffset Created { get; set; }
 }
 
 /// <inheritdoc />
@@ -26,7 +26,7 @@ public interface IHasUpdatedTime : IAuditedEntity
     /// <summary>
     ///     The time the entity was last modified
     /// </summary>
-    public DateTime? Updated { get; set; }
+    public DateTimeOffset? Updated { get; set; }
 }
 
 /// <inheritdoc />
@@ -39,7 +39,7 @@ public interface IHasDeletionTime : IAuditedEntity
     /// <summary>
     ///     The time the entity was deleted
     /// </summary>
-    public DateTime? Deleted { get; set; }
+    public DateTimeOffset? Deleted { get; set; }
 }
 
 /// <inheritdoc />

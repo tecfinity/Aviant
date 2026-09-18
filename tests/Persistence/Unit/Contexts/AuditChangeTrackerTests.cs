@@ -45,9 +45,9 @@ public sealed class AuditChangeTrackerTests
 
         public string Text { get; set; } = string.Empty;
 
-        public DateTime Created { get; set; }
+        public DateTimeOffset Created { get; set; }
 
-        public DateTime? Updated { get; set; }
+        public DateTimeOffset? Updated { get; set; }
     }
 
     public sealed class NoteContext(DbContextOptions options) : DbContextWrite<NoteContext>(options)

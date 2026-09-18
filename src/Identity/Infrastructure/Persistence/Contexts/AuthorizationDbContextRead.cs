@@ -1,6 +1,7 @@
 using Aviant.Application.Identity;
 using Aviant.Application.Persistence;
 using Aviant.Infrastructure.Persistence.Contexts;
+using Aviant.Infrastructure.Persistence.Conventions;
 using Microsoft.EntityFrameworkCore;
 
 namespace Aviant.Infrastructure.Identity.Persistence.Contexts;
@@ -59,6 +60,8 @@ public abstract class AuthorizationDbContextRead<TApplicationUser, TApplicationR
         _readImplementation.OnPreBaseModelCreating(modelBuilder);
 
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.UseSoftDeleteFilter();
     }
 
     private void TrackerSettings() => IDbContextReadImplementation.TrackerSettings(ChangeTracker);

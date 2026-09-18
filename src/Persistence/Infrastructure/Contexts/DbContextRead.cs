@@ -1,4 +1,5 @@
 using Aviant.Application.Persistence;
+using Aviant.Infrastructure.Persistence.Conventions;
 using Microsoft.EntityFrameworkCore;
 
 namespace Aviant.Infrastructure.Persistence.Contexts;
@@ -54,6 +55,8 @@ public abstract class DbContextRead
         _readImplementation.OnPreBaseModelCreating(modelBuilder);
 
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.UseSoftDeleteFilter();
     }
 
     private void TrackerSettings() => IDbContextReadImplementation.TrackerSettings(ChangeTracker);
