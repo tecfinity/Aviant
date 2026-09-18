@@ -1,6 +1,6 @@
 using Aviant.Core.EventSourcing.Aggregates;
 using Aviant.Core.EventSourcing.DomainEvents;
-using FluentAssertions;
+using AwesomeAssertions;
 using Xunit;
 
 namespace Aviant.Tests.EventSourcing.Unit;
