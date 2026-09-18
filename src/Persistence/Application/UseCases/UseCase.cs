@@ -1,7 +1,7 @@
 // ReSharper disable MemberCanBePrivate.Global
 
 using Aviant.Application.UseCases;
-using Aviant.Core.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Aviant.Application.Persistence.Orchestration;
 
 #pragma warning disable 8618
@@ -24,6 +24,5 @@ public abstract class UseCase<TUseCaseInput, TUseCaseOutput, TDbContext>
     ///     The orchestrator object
     /// </summary>
     protected new IOrchestrator<TDbContext> Orchestrator =>
-        ServiceLocator.ServiceContainer.GetRequiredService<IOrchestrator<TDbContext>>(
-            typeof(IOrchestrator<TDbContext>));
+        Services.GetRequiredService<IOrchestrator<TDbContext>>();
 }
