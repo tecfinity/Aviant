@@ -1,9 +1,35 @@
 # Aviant Library
 
+[![CI](https://github.com/tecfinity/Aviant/actions/workflows/ci.yml/badge.svg)](https://github.com/tecfinity/Aviant/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/tecfinity/Aviant/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/tecfinity/Aviant/actions/workflows/codeql-analysis.yml)
+[![NuGet](https://img.shields.io/nuget/vpre/Aviant.Application.svg?label=nuget)](https://www.nuget.org/packages?q=Aviant)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A collection of .NET libraries for building clean, scalable applications using DDD, CQRS, and Event Sourcing.
 
-> **Source-only:** Aviant is currently consumed by adding it as a git submodule. NuGet packages are planned.
-> See [CleanDDDArchitecture](https://github.com/panosru/CleanDDDArchitecture) for full usage examples.
+See [CleanDDDArchitecture](https://github.com/panosru/CleanDDDArchitecture) for a complete application built on Aviant.
+
+## Installation
+
+Each module ships as NuGet packages, one per layer:
+
+```bash
+dotnet add package Aviant.Application              # kernel: commands, queries, orchestrator, pipeline
+dotnet add package Aviant.Infrastructure.Persistence  # EF Core contexts, repositories, unit of work
+dotnet add package Aviant.Infrastructure.EventSourcing
+```
+
+| Module | Packages |
+|---|---|
+| Kernel | `Aviant.Core`, `Aviant.Application`, `Aviant.Infrastructure` |
+| DDD | `Aviant.Core.DDD`, `Aviant.Application.DDD`, `Aviant.Infrastructure.DDD` |
+| Event Sourcing | `Aviant.Core.EventSourcing`, `Aviant.Application.EventSourcing`, `Aviant.Infrastructure.EventSourcing` |
+| Persistence | `Aviant.Core.Persistence`, `Aviant.Application.Persistence`, `Aviant.Infrastructure.Persistence` |
+| Identity | `Aviant.Core.Identity`, `Aviant.Application.Identity`, `Aviant.Infrastructure.Identity` |
+| Email | `Aviant.Application.Email`, `Aviant.Infrastructure.Email` |
+| Jobs | `Aviant.Application.Jobs`, `Aviant.Infrastructure.Jobs` |
+
+Consuming the source as a git submodule (below) also works, and is how the example application does it.
 
 ## Module Overview
 
@@ -175,4 +201,4 @@ Aviant is MIT licensed and keeps its dependency tree free of commercial or copyl
 
 ## Contribution
 
-Pull requests and issue reports are welcome at [github.com/panosru/Aviant](https://github.com/panosru/Aviant/issues).
+Issues and pull requests are welcome at [github.com/tecfinity/Aviant](https://github.com/tecfinity/Aviant/issues). See [CONTRIBUTING.md](CONTRIBUTING.md), and report security issues privately as described in [SECURITY.md](SECURITY.md). Changes are recorded in [CHANGELOG.md](CHANGELOG.md).
