@@ -11,7 +11,7 @@
         <PackageReference Include="Hashids.net" />
         <PackageReference Include="Humanizer.Core" />
         <PackageReference Include="MediatR" />
-        <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" />
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
         <PackageReference Include="Scrutor" />
     </ItemGroup>
 
