@@ -24,10 +24,10 @@ public sealed class RetryEventProcessor<TNotification>
 
     public Task Handle(TNotification notification, CancellationToken cancellationToken)
     {
-        return _retryPolicy?.ExecuteAsync(
-                   () =>
-                       _inner.Handle(notification, cancellationToken))
-            ?? throw new NullReferenceException(nameof(_retryPolicy));
+        // A handler that does not implement IRetry has no policy and is called directly.
+        return _retryPolicy is null
+            ? _inner.Handle(notification, cancellationToken)
+            : _retryPolicy.ExecuteAsync(() => _inner.Handle(notification, cancellationToken));
     }
 
     #endregion

@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build, test and pack
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # MinVer derives the version from tags, so it needs the full history.
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore Aviant.sln
+
+      # NU1902-NU1904 are errors (Directory.Build.props), so a package with a known
+      # moderate, high or critical advisory fails here.
+      - name: Build
+        run: dotnet build Aviant.sln --configuration Release --no-restore
+
+      - name: Test
+        run: >
+          dotnet test Aviant.sln --configuration Release --no-build
+          --collect:"XPlat Code Coverage" --results-directory ./artifacts/coverage
+
+      - name: Pack
+        run: dotnet pack Aviant.sln --configuration Release --no-build --output ./artifacts/packages
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: ./artifacts/packages
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: ./artifacts/coverage

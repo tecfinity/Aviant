@@ -3,7 +3,6 @@
     <PropertyGroup>
         <RootNamespace>Aviant.Infrastructure.EventSourcing</RootNamespace>
         <AssemblyName>Aviant.Infrastructure.EventSourcing</AssemblyName>
-        <Version>1.0.0-rc.1</Version>
     </PropertyGroup>
 
     <ItemGroup>

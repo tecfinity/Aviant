@@ -30,10 +30,12 @@ public interface IDbContextWriteImplementation<TDbContext>
                     auditableImplementation.SetDeletionAuditProperties(entry);
                     break;
 
+                // Entities that were loaded but not modified, or are no longer tracked, have
+                // nothing to audit.
                 case EntityState.Detached:
                 case EntityState.Unchanged:
                 default:
-                    throw new ArgumentOutOfRangeException(typeof(EntityState).FullName);
+                    break;
             }
 
         Parent.ChangeTracker(

@@ -3,7 +3,6 @@
     <PropertyGroup>
         <RootNamespace>Aviant.Infrastructure.Email</RootNamespace>
         <AssemblyName>Aviant.Infrastructure.Email</AssemblyName>
-        <Version>1.0.0-rc.1</Version>
     </PropertyGroup>
 
     <ItemGroup>

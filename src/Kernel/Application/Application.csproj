@@ -3,7 +3,6 @@
     <PropertyGroup>
         <RootNamespace>Aviant.Application</RootNamespace>
         <AssemblyName>Aviant.Application</AssemblyName>
-        <Version>1.0.0-rc.1</Version>
     </PropertyGroup>
 
     <ItemGroup>

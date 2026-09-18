@@ -3,7 +3,6 @@ using System.Reflection;
 using Aviant.Core.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Configuration.EnvironmentVariables;
 using Microsoft.Extensions.Configuration.Json;
 using NetEscapades.Configuration.Yaml;
 
@@ -30,8 +29,8 @@ public static class DependencyInjectionRegistry
 
     public static IConfiguration SetConfiguration(IConfigurationBuilder configuration)
     {
-        ((List<IConfigurationSource>)ConfigurationWithDomainsBuilder.Sources)
-           .AddRange(configuration.Sources);
+        foreach (IConfigurationSource source in configuration.Sources)
+            ConfigurationWithDomainsBuilder.Sources.Add(source);
 
         return _configuration = configuration.Build();
     }
@@ -45,7 +44,8 @@ public static class DependencyInjectionRegistry
 
         ConfigurationBuilder configurationBuilder = new();
 
-        ((List<IConfigurationSource>)configurationBuilder.Sources).AddRange(ConfigurationBuilder.Sources);
+        foreach (IConfigurationSource source in ConfigurationBuilder.Sources)
+            configurationBuilder.Sources.Add(source);
 
         // JSON does not override any other format
         LoadConfiguration(
@@ -68,21 +68,6 @@ public static class DependencyInjectionRegistry
             CurrentEnvironment.EnvironmentName,
             ConfigurationFormat.Yaml);
 
-        // Domain files are appended after the host's sources, which puts them ahead of
-        // environment variables — so a connection string hardcoded in a domain YAML
-        // would silently beat the one supplied to the container. Re-rank the
-        // environment so deployment configuration wins, matching the host's own order.
-        List<IConfigurationSource> sources = (List<IConfigurationSource>)configurationBuilder.Sources;
-
-        List<IConfigurationSource> environmentSources =
-            [.. sources.Where(source => source is EnvironmentVariablesConfigurationSource)];
-
-        foreach (IConfigurationSource source in environmentSources)
-        {
-            sources.Remove(source);
-            sources.Add(source);
-        }
-
         return configurationBuilder.Build();
     }
 
@@ -104,25 +89,45 @@ public static class DependencyInjectionRegistry
             switch (format)
             {
                 case ConfigurationFormat.Json:
-                    ConfigurationWithDomainsBuilder?.Sources
-                       .Add(GetSource<JsonConfigurationSource>(configFile));
-
-                    configurationBuilder.Sources
-                       .Add(GetSource<JsonConfigurationSource>(configFile));
+                    InsertDomainSource(ConfigurationWithDomainsBuilder.Sources, GetSource<JsonConfigurationSource>(configFile));
+                    InsertDomainSource(configurationBuilder.Sources, GetSource<JsonConfigurationSource>(configFile));
                     break;
 
                 case ConfigurationFormat.Yaml:
                 case ConfigurationFormat.Yml:
-                    ConfigurationWithDomainsBuilder?.Sources
-                       .Add(GetSource<YamlConfigurationSource>(configFile));
-
-                    configurationBuilder.Sources
-                       .Add(GetSource<YamlConfigurationSource>(configFile));
+                    InsertDomainSource(ConfigurationWithDomainsBuilder.Sources, GetSource<YamlConfigurationSource>(configFile));
+                    InsertDomainSource(configurationBuilder.Sources, GetSource<YamlConfigurationSource>(configFile));
                     break;
 
                 default:
                     throw new ArgumentOutOfRangeException(nameof(format), format, null);
             }
+    }
+
+    /// <summary>
+    ///     Inserts a domain configuration file right after the last <c>appsettings*</c> file
+    ///     already in <paramref name="sources" />, host or domain.
+    /// </summary>
+    /// <remarks>
+    ///     A domain file overrides the host's appsettings files and any domain file loaded
+    ///     before it, but everything the host adds after its appsettings keeps precedence:
+    ///     user secrets, environment variables, command-line arguments, key vaults. Appending
+    ///     it instead let a value hardcoded in a domain file beat the one supplied to the
+    ///     container, so a deployed service silently connected to localhost.
+    /// </remarks>
+    internal static void InsertDomainSource(IList<IConfigurationSource> sources, IConfigurationSource source)
+    {
+        ArgumentNullException.ThrowIfNull(sources);
+        ArgumentNullException.ThrowIfNull(source);
+
+        var index = 0;
+
+        for (var i = 0; i < sources.Count; i++)
+            if (sources[i] is FileConfigurationSource { Path: { } path }
+             && Path.GetFileName(path).StartsWith("appsettings", StringComparison.OrdinalIgnoreCase))
+                index = i + 1;
+
+        sources.Insert(index, source);
     }
 
     private static bool ConfigurationExists(string configFileName) =>

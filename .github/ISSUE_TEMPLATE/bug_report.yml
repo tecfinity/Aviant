@@ -1,0 +1,31 @@
+name: Bug report
+description: Something in Aviant does not behave as documented.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead. Include exception messages and stack traces.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: The smallest code that shows the problem (a command, handler, aggregate or registration).
+      render: csharp
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Aviant version
+      placeholder: e.g. 1.0.0-preview.8, or a commit SHA
+    validations:
+      required: true
+  - type: input
+    id: dotnet
+    attributes:
+      label: .NET SDK version
+      placeholder: output of `dotnet --version`

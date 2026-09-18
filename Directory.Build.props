@@ -20,31 +20,48 @@
         <NuGetAuditMode>all</NuGetAuditMode>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <Deterministic>true</Deterministic>
-        <!-- Authors of the projects -->
         <Authors>Panagiotis Kosmidis</Authors>
-        <!-- Copyright information -->
-        <Copyright>Copyright © $(Authors) $([System.DateTime]::Now.Year)</Copyright>
-        <!-- Trademark information -->
-        <Trademark>$(Authors)™</Trademark>
-        <!-- Product name -->
-        <Product>$(Authors) Projects</Product>
-        <!-- Repository type -->
-        <RepositoryType>Git</RepositoryType>
-        <!-- License expression for the packages -->
-        <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <!-- Project URL for the packages -->
-        <PackageProjectUrl>https://github.com/panosru/Aviant</PackageProjectUrl>
-        <!-- Repository URL -->
-        <RepositoryUrl>https://github.com/panosru/Aviant</RepositoryUrl>
-        <!-- Neutral language for the resources -->
+        <Copyright>Copyright © Panagiotis Kosmidis</Copyright>
+        <Product>Aviant</Product>
         <NeutralLanguage>en-GB</NeutralLanguage>
-        <!-- Build number based on the number of days since January 1, 2000 -->
-        <Build>$([System.DateTime]::op_Subtraction($([System.DateTime]::get_Now().get_Date()),$([System.DateTime]::new(2000,1,1))).get_TotalDays())</Build>
-        <!-- Revision number based on the number of seconds since midnight, divided by 2 -->
-        <Revision>$([MSBuild]::Divide($([System.DateTime]::get_Now().get_TimeOfDay().get_TotalSeconds()), 2).ToString('F0'))</Revision>
-        <!-- Description of the packages -->
-        <Description>Aviant Domain Driven Design Library</Description>
-        <!-- Tags for the packages -->
-        <PackageTags>ddd, cqrs, event sourcing</PackageTags>
     </PropertyGroup>
+
+    <PropertyGroup Label="Versioning">
+        <!-- Versions come from git tags (v1.2.3); untagged commits get a pre-release height. -->
+        <MinVerTagPrefix>v</MinVerTagPrefix>
+        <MinVerDefaultPreReleaseIdentifiers>preview.0</MinVerDefaultPreReleaseIdentifiers>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Packaging">
+        <IsPackable>false</IsPackable>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageProjectUrl>https://github.com/tecfinity/Aviant</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/tecfinity/Aviant</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
+        <EmbedUntrackedSources>true</EmbedUntrackedSources>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageTags>ddd;cqrs;event-sourcing;clean-architecture;mediatr;domain-driven-design</PackageTags>
+        <Description>Aviant: building blocks for Domain-Driven Design, CQRS and Event Sourcing on .NET.</Description>
+    </PropertyGroup>
+
+    <!-- Reproducible builds on CI (SourceLink paths, deterministic output). -->
+    <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
+        <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+    </PropertyGroup>
+
+    <!-- Library projects are packed; tests are not. -->
+    <PropertyGroup Condition="$(MSBuildProjectDirectory.Contains('$([System.IO.Path]::DirectorySeparatorChar)src$([System.IO.Path]::DirectorySeparatorChar)'))">
+        <IsPackable>true</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup Condition="'$(IsPackable)' == 'true'">
+        <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="MinVer" PrivateAssets="all" />
+    </ItemGroup>
 </Project>

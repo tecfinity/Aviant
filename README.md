@@ -1,9 +1,35 @@
 # Aviant Library
 
+[![CI](https://github.com/tecfinity/Aviant/actions/workflows/ci.yml/badge.svg)](https://github.com/tecfinity/Aviant/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/tecfinity/Aviant/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/tecfinity/Aviant/actions/workflows/codeql-analysis.yml)
+[![NuGet](https://img.shields.io/nuget/vpre/Aviant.Application.svg?label=nuget)](https://www.nuget.org/packages?q=Aviant)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A collection of .NET libraries for building clean, scalable applications using DDD, CQRS, and Event Sourcing.
 
-> **Source-only:** Aviant is currently consumed by adding it as a git submodule. NuGet packages are planned.
-> See [CleanDDDArchitecture](https://github.com/panosru/CleanDDDArchitecture) for full usage examples.
+See [CleanDDDArchitecture](https://github.com/panosru/CleanDDDArchitecture) for a complete application built on Aviant.
+
+## Installation
+
+Each module ships as NuGet packages, one per layer:
+
+```bash
+dotnet add package Aviant.Application              # kernel: commands, queries, orchestrator, pipeline
+dotnet add package Aviant.Infrastructure.Persistence  # EF Core contexts, repositories, unit of work
+dotnet add package Aviant.Infrastructure.EventSourcing
+```
+
+| Module | Packages |
+|---|---|
+| Kernel | `Aviant.Core`, `Aviant.Application`, `Aviant.Infrastructure` |
+| DDD | `Aviant.Core.DDD`, `Aviant.Application.DDD`, `Aviant.Infrastructure.DDD` |
+| Event Sourcing | `Aviant.Core.EventSourcing`, `Aviant.Application.EventSourcing`, `Aviant.Infrastructure.EventSourcing` |
+| Persistence | `Aviant.Core.Persistence`, `Aviant.Application.Persistence`, `Aviant.Infrastructure.Persistence` |
+| Identity | `Aviant.Core.Identity`, `Aviant.Application.Identity`, `Aviant.Infrastructure.Identity` |
+| Email | `Aviant.Application.Email`, `Aviant.Infrastructure.Email` |
+| Jobs | `Aviant.Application.Jobs`, `Aviant.Infrastructure.Jobs` |
+
+Consuming the source as a git submodule (below) also works, and is how the example application does it.
 
 ## Module Overview
 
@@ -82,13 +108,38 @@ public sealed class AccountAggregate : AggregateRoot<AccountAggregate, AccountId
 }
 ```
 
-### MediatR Pipeline Behaviours
+### MediatR Pipeline
 
-Aviant registers these behaviours automatically (in order):
+Register the whole pipeline with one call, passing every assembly that holds requests and handlers:
+
+```csharp
+services.AddAviantCqrs(
+    [typeof(CreatePostUseCase).Assembly, typeof(CreateEventUseCase).Assembly],
+    orchestrator => orchestrator.TreatAsRefusal<InvalidOperationException>());
+```
+
+It registers MediatR, every handler, processor and interceptor in those assemblies, the retry decorators, and these behaviours in order:
 1. `PerformanceBehaviour` — logs slow requests (>500ms)
 2. `ValidationBehaviour` — runs FluentValidation validators
 3. `UnhandledExceptionBehaviour` — logs unhandled exceptions
-4. `RetryRequestProcessor` — wraps handlers with Polly retry
+4. Pre-processors, post-processors, exception actions and exception handlers
+
+Handlers that implement `IRetry` are wrapped in their Polly policy; others are called directly.
+
+**Startup fails if a request has no handler.** A hosted service checks every request type in the given assemblies and lists those with no registered handler, so a module left out of the list is caught at startup instead of on the first request.
+
+### Domain Refusals
+
+An aggregate refuses an operation by throwing `DomainRuleException`:
+
+```csharp
+if (Status == EventStatus.Draft)
+    throw new DomainRuleException("Cannot record a result while the event is Draft");
+```
+
+The orchestrator returns it as a failed `OrchestratorResponse` carrying the message (`Succeeded == false`), which your use case reports as a 400. Any other exception propagates as a fault. Code that already signals rules with framework exceptions can opt them in with `TreatAsRefusal<T>()`.
+
+When committing, `DbUpdateException` (constraint and concurrency conflicts) is also returned as a failed response; other exceptions propagate.
 
 ### Identity — JWT Authentication
 
@@ -150,4 +201,4 @@ Aviant is MIT licensed and keeps its dependency tree free of commercial or copyl
 
 ## Contribution
 
-Pull requests and issue reports are welcome at [github.com/panosru/Aviant](https://github.com/panosru/Aviant/issues).
+Issues and pull requests are welcome at [github.com/tecfinity/Aviant](https://github.com/tecfinity/Aviant/issues). See [CONTRIBUTING.md](CONTRIBUTING.md), and report security issues privately as described in [SECURITY.md](SECURITY.md). Changes are recorded in [CHANGELOG.md](CHANGELOG.md).

@@ -1,0 +1,21 @@
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      microsoft:
+        patterns: ['Microsoft.*', 'System.*']
+      testing:
+        patterns: ['xunit*', 'AwesomeAssertions', 'coverlet*', 'Microsoft.NET.Test.Sdk']
+    ignore:
+      # 13+ requires a commercial licence; see README "Dependencies and Licensing".
+      - dependency-name: MediatR
+        versions: ['>= 13.0.0']
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
