@@ -34,6 +34,72 @@ public sealed class MimeMessageFactoryTests
         mime.Subject.Should().Be("Welcome");
     }
 
+    /// <remarks>
+    ///  List-Unsubscribe is why this exists. The large mailbox providers have required it
+    ///  of bulk senders since 2024, and a message without it is a message whose delivery
+    ///  rate falls for a reason the sender cannot see.
+    /// </remarks>
+    [Fact]
+    public void ExtraHeadersReachTheMessage()
+    {
+        var message = Minimal() with
+        {
+            Headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["List-Unsubscribe"]      = "<https://example.com/u?t=abc>",
+                ["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click",
+            },
+        };
+
+        using var mime = MimeMessageFactory.Create(message, Platform);
+
+        mime.Headers["List-Unsubscribe"].Should().Be("<https://example.com/u?t=abc>");
+        mime.Headers["List-Unsubscribe-Post"].Should().Be("List-Unsubscribe=One-Click");
+    }
+
+    /// <remarks>
+    ///  A header set twice can be read either way round by a receiver, and two different
+    ///  List-Unsubscribe addresses is worse than none.
+    /// </remarks>
+    [Fact]
+    public void AHeaderIsWrittenOnceHoweverItIsSpelled()
+    {
+        var message = Minimal() with
+        {
+            Headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["List-Unsubscribe"] = "<https://example.com/one>",
+            },
+        };
+
+        using var mime = MimeMessageFactory.Create(message, Platform);
+
+        mime.Headers.Count(header =>
+                header.Field.Equals("List-Unsubscribe", StringComparison.OrdinalIgnoreCase))
+           .Should()
+           .Be(1);
+    }
+
+    /// <remarks>
+    ///  An empty header is a header the sender did not mean to set. Writing it produces a
+    ///  bare field name that some receivers treat as a malformed message.
+    /// </remarks>
+    [Fact]
+    public void EmptyHeadersAreNotWritten()
+    {
+        var message = Minimal() with
+        {
+            Headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["X-Nothing"] = "   ",
+            },
+        };
+
+        using var mime = MimeMessageFactory.Create(message, Platform);
+
+        mime.Headers.Contains("X-Nothing").Should().BeFalse();
+    }
+
     [Fact]
     public void TheDefaultSenderIsUsedUnlessTheMessageNamesOne()
     {

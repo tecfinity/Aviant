@@ -31,6 +31,17 @@ public static class MimeMessageFactory
         mime.Bcc.AddRange(message.Bcc.Select(ToMailbox));
         mime.ReplyTo.AddRange(message.ReplyTo.Select(ToMailbox));
 
+        // Before the body, and Replace rather than Add: a header set twice is a header a
+        // receiver may read either copy of, and a duplicated List-Unsubscribe is worse
+        // than a missing one because it can name two different addresses.
+        foreach (var header in message.Headers)
+        {
+            if (string.IsNullOrWhiteSpace(header.Key) || string.IsNullOrWhiteSpace(header.Value))
+                continue;
+
+            mime.Headers[header.Key] = header.Value;
+        }
+
         var body = new BodyBuilder { HtmlBody = message.HtmlBody, TextBody = message.TextBody };
 
         foreach (var attachment in message.Attachments)

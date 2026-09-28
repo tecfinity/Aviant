@@ -54,4 +54,31 @@ public sealed record EmailMessage
     public string? TextBody { get; init; }
 
     public IReadOnlyList<EmailAttachment> Attachments { get; init; } = [];
+
+    /// <summary>
+    ///     Extra headers to put on the message.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///     For headers that are part of what a message <em>is</em> rather than how it is
+    ///     transported — <c>List-Unsubscribe</c> and <c>List-Unsubscribe-Post</c> above
+    ///     all, which the large mailbox providers have required of bulk senders since 2024
+    ///     and which cost deliverability when absent.
+    ///     </para>
+    ///     <para>
+    ///     A dictionary rather than named properties, because the set is open and an
+    ///     abstraction over transports should not have to grow a member every time one of
+    ///     them learns a new one. Ordinal and case-insensitive, since header names are
+    ///     case-insensitive and a message carrying both <c>List-Unsubscribe</c> and
+    ///     <c>list-unsubscribe</c> is a message with a duplicate header.
+    ///     </para>
+    ///     <para>
+    ///     <b>A transport that cannot carry these must not silently drop them.</b> A
+    ///     <c>List-Unsubscribe</c> that does not arrive is indistinguishable from one that
+    ///     was never set, and the sender learns about it from their delivery rate months
+    ///     later.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyDictionary<string, string> Headers { get; init; } =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 }
