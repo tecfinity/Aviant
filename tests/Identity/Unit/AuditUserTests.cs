@@ -32,7 +32,7 @@ public sealed class AuditUserTests
     [Fact]
     public async Task WithoutACurrentUserTheEntityIsStampedWithEmpty()
     {
-        await using var provider = Services(currentUser: null);
+        await using var provider = Services(currentUser: null, registerService: false);
         await using var scope = provider.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<NoteContext>();
         var note = new Note { Id = 1 };
@@ -68,14 +68,62 @@ public sealed class AuditUserTests
         stored.Deleted.Should().NotBeNull();
     }
 
-    private static ServiceProvider Services(Guid? currentUser)
+    [Fact]
+    public async Task AServiceThatNamesNobodyIsNotTurnedIntoSomebody()
+    {
+        await using var provider = Services(currentUser: null);
+        await using (var scope = provider.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<NoteContext>();
+            context.Tasks.Add(new TaskItem { Id = 1 });
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+            context.Tasks.Remove(await context.Tasks.SingleAsync(TestContext.Current.CancellationToken));
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        await using var fresh = provider.CreateAsyncScope();
+        var stored = await fresh.ServiceProvider.GetRequiredService<NoteContext>().Tasks
+           .IgnoreQueryFilters().SingleAsync(TestContext.Current.CancellationToken);
+
+        stored.IsDeleted.Should().BeTrue();
+        stored.DeletedBy.Should().BeNull(
+            "an all-zero id is a populated column naming nobody, which no later query can tell "
+          + "apart from a real account; the column is nullable, so say what is true");
+    }
+
+    [Fact]
+    public async Task NothingToAskIsAlsoRecordedAsNobody()
+    {
+        await using var provider = Services(currentUser: null, registerService: false);
+        await using (var scope = provider.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<NoteContext>();
+            context.Tasks.Add(new TaskItem { Id = 1 });
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+            context.Tasks.Remove(await context.Tasks.SingleAsync(TestContext.Current.CancellationToken));
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        await using var fresh = provider.CreateAsyncScope();
+        var stored = await fresh.ServiceProvider.GetRequiredService<NoteContext>().Tasks
+           .IgnoreQueryFilters().SingleAsync(TestContext.Current.CancellationToken);
+
+        stored.DeletedBy.Should().BeNull();
+    }
+
+    /// <summary>
+    ///     Three states, not two: nobody to ask, somebody who answers "no user", and a real user.
+    /// </summary>
+    private static ServiceProvider Services(Guid? currentUser, bool registerService = true)
     {
         var services = new ServiceCollection();
         var database = Guid.NewGuid().ToString("N");
         services.AddDbContext<NoteContext>(options => options.UseInMemoryDatabase(database));
 
-        if (currentUser is { } id)
-            services.AddScoped<ICurrentUserService>(_ => new FixedUser(id));
+        if (registerService)
+            services.AddScoped<ICurrentUserService>(_ => new FixedUser(currentUser));
 
         return services.BuildServiceProvider();
     }
@@ -107,5 +155,5 @@ public sealed class AuditUserTests
         public DbSet<TaskItem> Tasks => Set<TaskItem>();
     }
 
-    private sealed record FixedUser(Guid UserId) : ICurrentUserService;
+    private sealed record FixedUser(Guid? UserId) : ICurrentUserService;
 }
