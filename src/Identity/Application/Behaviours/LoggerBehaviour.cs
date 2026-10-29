@@ -28,5 +28,5 @@ public partial class LoggerBehaviour<TRequest> : Application.Behaviours.LoggerBe
     #endregion
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Request: {Name}, UserId: {UserId}")]
-    private static partial void LogRequest(ILogger logger, string name, Guid userId);
+    private static partial void LogRequest(ILogger logger, string name, Guid? userId);
 }

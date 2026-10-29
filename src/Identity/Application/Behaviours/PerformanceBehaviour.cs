@@ -29,10 +29,13 @@ public partial class PerformanceBehaviour<TRequest, TResponse>
         long              elapsedMilliseconds,
         CancellationToken cancellationToken)
     {
-        var userId   = _currentUserService.UserId;
-        var userName = Guid.Empty == userId
-            ? string.Empty
-            : await _identityService.GetUserNameAsync(userId, cancellationToken).ConfigureAwait(false);
+        Guid? userId = _currentUserService.UserId;
+
+        // No account is a real state — a scheduled job, a public request — and asking the
+        // identity service to name it would be asking who nobody is.
+        string userName = userId is { } id
+            ? await _identityService.GetUserNameAsync(id, cancellationToken).ConfigureAwait(false)
+            : string.Empty;
 
         LogLongRunning(Logger, typeof(TRequest).Name, elapsedMilliseconds, userId, userName);
     }
@@ -40,5 +43,5 @@ public partial class PerformanceBehaviour<TRequest, TResponse>
     [LoggerMessage(
         Level   = LogLevel.Warning,
         Message = "Long running request: {Name} ({ElapsedMilliseconds} milliseconds), UserId: {UserId}, UserName: {UserName}")]
-    private static partial void LogLongRunning(ILogger logger, string name, long elapsedMilliseconds, Guid userId, string userName);
+    private static partial void LogLongRunning(ILogger logger, string name, long elapsedMilliseconds, Guid? userId, string userName);
 }
